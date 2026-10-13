@@ -1,0 +1,31 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { Client } from '@modelcontextprotocol/client';
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
+import { writeFile } from 'node:fs/promises';
+import { fixture } from './fixture.mjs';
+import { appendEvent } from '../dist/trace.js';
+
+test('real stdio client lists two read-only tools, retrieves fresh source and rejects outside-root journals', async t => {
+  const { root } = await fixture(t);
+  const client = new Client({ name: 'editlane-test', version: '1.0.0' });
+  const transport = new StdioClientTransport({ command: process.execPath, args: [path.resolve('dist/cli.js'), 'serve', '--root', root], stderr: 'pipe' });
+  t.after(() => client.close());
+  await client.connect(transport);
+  const listed = await client.listTools();
+  assert.equal(listed.tools.length, 2);
+  assert.ok(listed.tools.every(tool => tool.annotations.readOnlyHint));
+  const first = await client.callTool({ name: 'editlane_focus', arguments: { files: ['src/tags.ts'] } });
+  assert.equal(first.isError, undefined);
+  assert.ok(first.content[0].text.includes('src/normalize.ts'));
+  await writeFile(path.join(root, 'src/tags.ts'), 'export const tags = "changed";');
+  const second = await client.callTool({ name: 'editlane_focus', arguments: { files: ['src/tags.ts'] } });
+  assert.ok(second.content[0].text.includes('export const tags = "changed";'));
+  const refused = await client.callTool({ name: 'editlane_audit', arguments: { journal: '../outside.jsonl' } });
+  assert.equal(refused.isError, true);
+  await appendEvent(path.join(root, '.editlane/session.jsonl'), { timestamp: new Date().toISOString(), kind: 'read', key: 'tags', fingerprint: 'one' });
+  const audit = await client.callTool({ name: 'editlane_audit', arguments: { journal: '.editlane/session.jsonl' } });
+  assert.equal(audit.isError, undefined);
+  assert.equal(JSON.parse(audit.content[0].text).totalEvents, 1);
+});

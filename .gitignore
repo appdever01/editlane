@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.tgz
+coverage/
+.editlane/
+.local-notes/
+.openai/
+[Aa][Gg][Ee][Nn][Tt]*.[Mm][Dd]
+[Cc][Ll][Aa][Uu][Dd][Ee]*.[Mm][Dd]
+[Cc][Oo][Dd][Ee][Xx]*.[Mm][Dd]
+*.local.md
+setup.sh
+.env
+.env.*
+!.env.example
+.DS_Store

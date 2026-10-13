@@ -1,0 +1,6 @@
+{"timestamp":"2026-01-01T00:00:00.000Z","kind":"start","key":"fix tag filtering"}
+{"timestamp":"2026-01-01T00:00:01.000Z","kind":"read","key":"src/tags.ts","fingerprint":"content-hash-a","bytes":800}
+{"timestamp":"2026-01-01T00:00:03.000Z","kind":"search","key":"tags in src","fingerprint":"scope-and-query-hash-a","bytes":1200}
+{"timestamp":"2026-01-01T00:00:06.000Z","kind":"read","key":"src/tags.ts","fingerprint":"content-hash-a","bytes":800}
+{"timestamp":"2026-01-01T00:00:09.000Z","kind":"edit","key":"src/tags.ts"}
+{"timestamp":"2026-01-01T00:00:11.000Z","kind":"check","key":"npm test","durationMs":1000,"exitCode":0}

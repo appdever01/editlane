@@ -1,0 +1,31 @@
+{
+  "name": "@appdever01/editlane",
+  "version": "0.1.0",
+  "description": "Focused, exact context and evidence for faster coding-agent workflows.",
+  "repository": { "type": "git", "url": "git+https://github.com/appdever01/editlane.git" },
+  "homepage": "https://github.com/appdever01/editlane#readme",
+  "bugs": { "url": "https://github.com/appdever01/editlane/issues" },
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "bin": { "editlane": "dist/cli.js" },
+  "files": ["dist", "README.md", "LICENSE", "NOTICE.md", "examples"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test --test-concurrency=2 test/*.test.mjs",
+    "bench": "npm run build && node bench/context.mjs",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@ast-grep/napi": "0.50.0",
+    "@modelcontextprotocol/server": "2.3.1",
+    "jsonc-parser": "3.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
+    "@types/node": "^22.0.0",
+    "typescript": "7.0.2"
+  }
+}
