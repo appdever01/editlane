@@ -78,7 +78,7 @@ export class FocusEngine {
     if (anchors.length > 20) throw new Error('Use at most 20 affected files per context request.');
     for (const file of anchors) {
       if (!available.has(file)) throw new Error(`Target is ignored, private, missing or outside discovery: ${file}`);
-      if (!codePattern.test(file)) warnings.push(`${file}: dependency parsing covers JavaScript and TypeScript only. Exact source is included; inspect this language's dependencies, tests and required checks manually.`);
+      if (!codePattern.test(file)) warnings.push(`${file}: dependency parsing covers JavaScript and TypeScript only. Inspect this language's dependencies, tests and required checks manually.`);
     }
     const resolver = new Resolver(root, available);
     const candidates = new Map<string, { role: ContextFile['role']; reason: string }>();
