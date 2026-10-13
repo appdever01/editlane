@@ -148,7 +148,7 @@ Any agent with MCP stdio support can use the same server entry, regardless of it
 
 Give your agent a request such as:
 
-> Use Editlane with mode=edit for the known affected files. Reuse the exact source it returns and batch any needed deferred contracts and relevant tests into one follow-up. Begin editing once the affected behavior and contracts are clear. Expand only for a concrete uncertainty. Make the smallest complete change, run the repository's required checks and review the diff.
+> Use Editlane with mode=edit for the known affected files. Batch needed contracts and tests into the request when their paths are known. For later MCP calls, set reuseRetained=true only while retaining the earlier source; omit it after context loss. Begin editing once affected behavior and contracts are clear. Expand only for a concrete uncertainty. Make the smallest complete change, run required checks and review the diff.
 
 A tiny task whose code is already known may need no context tool.
 

@@ -29,6 +29,8 @@ Edit mode sends targets and their direct dependencies, configuration and guidanc
 
 Retained-source hashes reduce repeated responses. Every request still reads current content; a matching hash skips only a body the caller says it already has. Changed files return normally, including same-size changes. Guidance and discovered check scripts are always sent. This is a response optimization, not an assumption that the model remembers another session.
 
+MCP session reuse provides the same mechanism without copying long hash maps into every call. It is explicitly enabled by the caller, applies only to bodies returned in that session, and resets when omitted or false. New sessions and deferred bodies start without retained hashes. Native comparisons must identify whether they used explicit hash maps or this later session option; the frozen repeat cohort does not contain the session option.
+
 The connection command generates an explicit root configuration for MCP clients, and the doctor command verifies it through the official stdio SDK. Neither changes permissions, provider authentication or network transport.
 
 The native usage reader preserves each client's cache definitions, rejects malformed traces and keeps unknown counts visible. It supports Claude, Codex and Cursor completed JSONL usage events without changing their models or reasoning effort. The [CLI reference](cli.md#native-usage) explains how to compare those counts.
