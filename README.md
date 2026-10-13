@@ -1,119 +1,165 @@
-# Editlane
+<h1 align="center">Editlane</h1>
 
-Get your coding agent to the right files in fewer calls, with exact source and visible checks.
+<p align="center">Focused context for coding agents, with exact source and visible checks.</p>
 
-An agent can spend minutes reading neighboring screens, repeating searches and loading tools before its first edit. Editlane prepares a focused context packet and helps you measure that investigation. It runs locally, works through a CLI or MCP, and needs no API key or model proxy.
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-6366f1" alt="MIT license"></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/node-%E2%89%A522-339933" alt="Node.js 22 or newer"></a>
+  <a href="#project-status"><img src="https://img.shields.io/badge/status-prototype-d97706" alt="Prototype"></a>
+</p>
 
-**Status:** v0.1 prototype. JavaScript and TypeScript context discovery is implemented. MCP is tested with the official stdio client; separate live integration tests in Cursor, Claude and Codex are still needed. Native tools are not intercepted, and faster model sessions are not yet established.
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#connect-your-agent">Connect your agent</a> ·
+  <a href="CONTRIBUTING.md">Contribute</a>
+</p>
 
-## Try it
+A small fix can turn into dozens of searches before a coding agent makes its first edit. Editlane gathers the affected files and nearby contracts in one request, then helps you measure where the investigation spends time.
 
-Requires Node.js 22+ and [ripgrep](https://github.com/BurntSushi/ripgrep). macOS and Linux are the initial targets.
+It runs locally through a CLI or a read-only MCP server. You keep your existing agent and model; Editlane needs no API key.
+
+## Project status
+
+**v0.1 is a working prototype for JavaScript and TypeScript.** The CLI and MCP server are implemented, and the server is tested with the official MCP stdio client. Live integration and repeated task benchmarks in Cursor, Claude Code, and Codex still need testing. Model speed, billed token savings, and stronger code quality have not been established.
+
+## Quick start
+
+You need **Node.js 22+** and [ripgrep](https://github.com/BurntSushi/ripgrep) on your `PATH`. macOS and Linux are the initial targets. Install from source; the package has not been published to npm.
 
 ```sh
 git clone https://github.com/appdever01/editlane.git
 cd editlane
 npm ci --ignore-scripts
 npm run build
-node dist/cli.js focus "fix tag filtering" --root /path/to/project --file src/tags.ts
 ```
 
-Start with a known file when possible. Without `--file`, Editlane ranks filenames against the task and asks for a file when it cannot find a useful match. It does not load the whole repository to guess.
+Try a context request against Editlane itself:
 
-The packet contains:
+```sh
+node dist/cli.js focus "inspect context discovery" --root . --file src/context.ts --budget 100000
+```
 
-- Whole affected files, their direct local imports, verified direct consumers and nearby tests.
-- File paths, roles, reasons, byte counts and SHA-256 hashes.
-- Applicable repository guidance, including ignored instruction files, with their directory scope.
-- Package check scripts marked `not_run`.
-- Explicit omitted files, unresolved imports and discovery limits.
+This request returns the context module, its local dependencies and direct consumers, the matching test file, and the package configuration. The output starts with metadata, followed by whole source files. Discovered check scripts are marked `not_run`.
 
-Use repeated `--file` arguments to expand the scope. `--budget` sets a source-byte budget, not a token budget. Requested files must fit in full; neighbors that do not fit are listed for retrieval. Instructions are included outside that budget. `--json` produces structured output; the default separates metadata from exact source.
+For your own project, point `--root` at its directory and `--file` at an affected file relative to that root. Repeat `--file` for more targets. Use `--json` for structured output. The [CLI reference](reference/cli.md) explains budgets, recording, and every command.
 
-## Connect an agent
+## What you get
 
-Editlane exposes only two read-only MCP tools: `editlane_focus` and `editlane_audit`. Configure your client's local MCP server using the equivalent of:
+| Capability | Behavior |
+| --- | --- |
+| Focused context | Affected files, direct local imports, verified direct consumers, and nearby tests. |
+| Exact source | Whole files with paths, inclusion reasons, byte counts, and SHA-256 hashes. |
+| Visible gaps | Omitted files, unresolved imports, and discovery limits are included in the response. |
+| Repository guidance | Applicable instruction files are returned separately with their directory scope. |
+| Read-only MCP | Two tools for gathering context and auditing a recorded session. |
+| Session evidence | Time to first edit, unchanged repeated calls, observed bytes, and recorded check results. |
+
+The agent still needs to understand the code, follow affected contracts, make the edit, and run the required checks. Editlane discovers check scripts; it does not choose or execute them automatically.
+
+## How it works
+
+```mermaid
+flowchart LR
+  Task[Task and affected files] --> Search[ripgrep inventory]
+  Search --> Graph[ast-grep import verification]
+  Graph --> Packet[Whole files and explicit gaps]
+  Packet --> Agent[CLI or read-only MCP]
+  Journal[Local session events] --> Audit[First-edit and repeat report]
+```
+
+Start with a known file when you can. Editlane finds its direct dependencies, checks candidate consumers against parsed imports, and looks for nearby tests and configuration. Without `--file`, it ranks filenames against the task and asks for a file when it cannot find a useful match.
+
+The source budget controls how much neighboring code is included. Requested files must fit in full; other files that do not fit are listed as omissions. Applicable instructions sit outside that budget and are never silently truncated. The host decides instruction precedence.
+
+The MCP process keeps an in-memory AST cache keyed by content hashes. Every request reads current content, so even a same-size edit invalidates cached imports. Editlane does not maintain a persistent source index.
+
+## Connect your agent
+
+The server exposes `editlane_focus` and `editlane_audit`. Start it with:
+
+```sh
+node dist/cli.js serve --root /absolute/path/to/project
+```
+
+Register that command as a local stdio MCP server in your client. For clients using a `mcpServers` JSON configuration:
 
 ```json
 {
   "mcpServers": {
     "editlane": {
       "command": "node",
-      "args": ["/absolute/path/to/editlane/dist/cli.js", "serve", "--root", "/absolute/path/to/project"]
+      "args": [
+        "/absolute/path/to/editlane/dist/cli.js",
+        "serve",
+        "--root",
+        "/absolute/path/to/project"
+      ]
     }
   }
 }
 ```
 
-Client configuration formats differ. The same command can be registered in Cursor, Claude Code or Codex; the server is pinned to one repository root. Editlane does not change your client settings or permissions. The host still decides which tools to call and which instructions take precedence.
+Replace both absolute paths. Configuration formats differ between clients, and the server is pinned to one repository root. Editlane does not change client settings or permissions.
 
-A useful request is: “Use Editlane to gather the affected module, inspect the returned contracts and tests, then make the smallest complete change. Follow omitted context when needed, run the repository's required checks, and review the original diff.” A tiny task whose code is already known may need no context tool.
+Give your agent a request such as:
 
-## See where a session spends time
+> Use Editlane to gather context for the affected file. Read the returned contracts and tests, follow omitted context when needed, make the smallest complete change, then run the repository's required checks and review the diff.
+
+A tiny task whose code is already known may need no context tool.
+
+## Measure the investigation
+
+Try the included synthetic session:
 
 ```sh
 node dist/cli.js audit --journal examples/session.jsonl
 ```
 
-The example is synthetic. The report shows elapsed time from the first recorded event to the first edit, investigation calls, repeated calls with unchanged fingerprints, observed output bytes and recorded checks. A changed fingerprint invalidates reuse. Calls without a fingerprint are reported separately. Repeating a read can be justified; the report gives evidence rather than blocking it.
+It reports a first edit at nine seconds, three investigation calls, and one repeated read with an unchanged fingerprint. The recorded successful check is part of the fixture, not a check performed by the audit command.
 
-The input is normalized JSONL. Each event has an ISO `timestamp`, `kind` and `key`; optional fields are `fingerprint`, `durationMs`, `bytes`, `exitCode` and `signal`. Kinds are `start`, `read`, `search`, `context`, `edit`, `check` and `command`. Events must be in timestamp order. Search fingerprints must cover both the query and the searched content. Native client trace importers and automatic hooks are future work.
+For real sessions, the CLI can record explicit events and run commands with unchanged output and exit codes. Native client tools are not intercepted. See [session recording](reference/cli.md#session-recording) for the JSONL format and examples.
 
-You can record explicit events and commands:
-
-```sh
-node dist/cli.js record --root /path/to/project --journal /private/path/session.jsonl --kind read --key src/tags.ts
-node dist/cli.js run --root /path/to/project --journal /private/path/session.jsonl --kind check -- npm test
-```
-
-`record` hashes current file content for a read. `run` executes the exact argument list without a shell, streams stdout and stderr unchanged, preserves the child exit code and records the result. It does not choose or skip checks. New journals are private files, bounded to 10 MB. Command arguments are recorded; keep sensitive values out of them.
-
-## Optional RTK integration
-
-If [RTK](https://github.com/rtk-ai/rtk) is installed:
-
-```sh
-node dist/cli.js metadata --root /path/to/project --rtk
-```
-
-This delegates only a bounded recent-history listing to RTK. Exact source, checks and final diffs are left intact. RTK is loaded only when requested. No automatic shell rewriting or client hook installation is included.
-
-## Architecture
-
-```mermaid
-flowchart LR
-  Task[Task and affected files] --> Discover[ripgrep inventory and scoped candidates]
-  Discover --> Graph[ast-grep import verification]
-  Graph --> Packet[Exact context plus omissions and checks]
-  Packet --> Client[CLI or read-only MCP]
-  Events[Local normalized events] --> Audit[Repeat and first-edit report]
-```
-
-The AST cache lives in the server process and keys entries by repository, path and content hash. Each request reads current content; a same-size edit still invalidates its parsed imports. No repository source is stored in a persistent index. Subprocesses use explicit argument arrays, read timeouts and bounded outputs.
-
-v0.1 resolves relative imports, extension substitutions, directory indexes and nearest JSONC `tsconfig`/`jsconfig` aliases. It does not implement inherited configs, workspace package exports, language-server references, recursive barrel expansion or computed imports. Reverse candidates use affected filenames, then verify imports with the AST; renamed aliases can escape that candidate search. Packets flag these limits. Expand the investigation for contracts or consumers that need it.
-
-Ignored files, common secret filenames, binary files, invalid UTF-8, symlinks and paths outside the root are excluded. Applicable instructions are read separately and are never silently truncated. This is not a secret detector: source and guidance may contain private information. Keep packets and journals out of Git and shared logs. Editlane does not send network requests during context discovery; connecting it to an agent can send the resulting tool response to that agent's provider.
-
-## Reproduce the benchmark
+## Benchmark
 
 ```sh
 npm test
 npm run bench
 ```
 
-The benchmark generates 100 unrelated modules and a small tag flow with an import, consumer, regression file, package scripts and guidance. It compares a full-repository snapshot with a known-file context request and verifies exact expected files and retained check scripts. It prints complete packet bytes, cold and warm timings, and cache hits.
+The benchmark creates 100 unrelated modules and a small tag flow, then compares a full repository snapshot with a known-file context request. It verifies the expected files and retained check scripts before printing its measurements.
 
-One development run returned a 3,505-byte packet against a 693,268-byte snapshot: 99.49% fewer bytes. Gathering took 27.92 ms cold and 13.98 ms warm; the plain snapshot read took 15.69 ms. These are synthetic context measurements, not billed tokens or an AI speedup. The main hypothesis to test next is fewer model/tool rounds before a correct edit across realistic tasks, with unchanged acceptance tests and required checks.
+One development run produced:
 
-## Build on it
+| Measurement | Result |
+| --- | ---: |
+| Full repository snapshot | 693,268 bytes |
+| Complete focused packet | 3,505 bytes |
+| Packet size reduction | 99.49% |
+| Cold context request | 27.92 ms |
+| Warm context request | 13.98 ms |
+| Plain snapshot read | 15.69 ms |
 
-The next milestones are native trace importers, broader module resolution, an optional language-server provider, and repeated live task benchmarks. Improvements should demonstrate fewer unnecessary calls without losing affected consumers, source fidelity or failed checks.
+These are synthetic context measurements. Bytes are not billed tokens, and the cold request took longer than reading the snapshot. Real agent benchmarks need repeated tasks, unchanged acceptance tests, and a comparison of time to a correct edit.
 
-The test suite covers exact source, alias resolution, consumers, content-change invalidation, budgets, ignored files, symlinks, instruction scope, trace ordering, failure reporting and a real MCP client/server connection. Tests run with at most two workers. The CI workflow is configured for Node.js 22 and 24.
+## Limits and privacy
+
+v0.1 resolves relative imports, extension substitutions, directory indexes, and nearest JSONC `tsconfig`/`jsconfig` aliases. Inherited configs, workspace package exports, language-server references, recursive barrel expansion, and computed imports are incomplete. Reverse candidates are selected by affected filenames, so renamed aliases can escape discovery. Packets flag these limits; use them to decide where to investigate further.
+
+Ignored files, common secret filenames, binary files, invalid UTF-8, symlinks, and paths outside the root are excluded. Applicable guidance is read separately. This is not a secret detector: ordinary source or guidance may still contain private information.
+
+Keep packets and journals out of Git and shared logs. Context discovery makes no network requests, but your agent client can send the returned context to its model provider. Journals also record command arguments; keep credentials out of those arguments. See the [security policy](SECURITY.md).
+
+## Contribute
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, and the contribution workflow. Improvements to module resolution, native trace importers, and realistic agent benchmarks are useful next steps. Changes should reduce unnecessary calls while preserving exact source, affected consumers, and failed checks.
+
+Report reproducible bugs through [issues](https://github.com/appdever01/editlane/issues/new/choose), ask questions in [Discussions](https://github.com/appdever01/editlane/discussions), and follow the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Credits and license
 
-Editlane's planner, provenance, audit and command recorder are original MIT-licensed code. It uses [ast-grep](https://github.com/ast-grep/ast-grep) for parsing, [ripgrep](https://github.com/BurntSushi/ripgrep) for discovery, [JSONC Parser](https://github.com/microsoft/node-jsonc-parser) for configuration, [Zod](https://github.com/colinhacks/zod) for schemas, and the official [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk).
+Editlane's planner, provenance, audit, and command recorder are original code released under the [MIT license](LICENSE).
 
-[RTK](https://github.com/rtk-ai/rtk), [Serena](https://github.com/oraios/serena), [Headroom](https://github.com/headroomlabs-ai/headroom), [Repomix](https://github.com/yamadashy/repomix), [LLMLingua](https://github.com/microsoft/LLMLingua), [Context7](https://github.com/upstash/context7) and [TOON](https://github.com/toon-format/toon) informed the research. They retain their own authorship and licenses; only the stated integrations ship. See [NOTICE.md](NOTICE.md).
+It uses [ast-grep](https://github.com/ast-grep/ast-grep), [ripgrep](https://github.com/BurntSushi/ripgrep), [JSONC Parser](https://github.com/microsoft/node-jsonc-parser), [Zod](https://github.com/colinhacks/zod), and the official [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk). [RTK](https://github.com/rtk-ai/rtk) is an optional integration for bounded Git history metadata.
+
+[Serena](https://github.com/oraios/serena), [Headroom](https://github.com/headroomlabs-ai/headroom), [Repomix](https://github.com/yamadashy/repomix), [LLMLingua](https://github.com/microsoft/LLMLingua), [Context7](https://github.com/upstash/context7), and [TOON](https://github.com/toon-format/toon) informed the research. Those projects retain their own authorship and licenses. The [third-party notice](NOTICE.md) lists what ships and how it is used.

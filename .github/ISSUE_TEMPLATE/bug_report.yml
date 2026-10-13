@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a reproducible problem with context, recording, or MCP.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use a small synthetic example. Remove credentials, private source, and personal information from output.
+        For vulnerabilities, use [private reporting](https://github.com/appdever01/editlane/security/advisories/new).
+  - type: input
+    id: version
+    attributes:
+      label: Editlane version or commit
+      description: Run node dist/cli.js --version or include the commit you built.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Node.js version, ripgrep version, and agent client if relevant.
+      placeholder: macOS, Node 24, ripgrep 14, CLI
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include the command and a minimal file layout or synthetic fixture.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should the command or tool return?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include sanitized output, warnings, and exit codes when useful.
+    validations:
+      required: true

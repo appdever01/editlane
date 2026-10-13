@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/appdever01/editlane/discussions
+    about: Ask about setup, usage, or a proposal before opening an issue.
+  - name: Report a vulnerability privately
+    url: https://github.com/appdever01/editlane/security/advisories/new
+    about: Share security reports without exposing sensitive details in a public issue.

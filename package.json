@@ -9,7 +9,7 @@
   "license": "MIT",
   "engines": { "node": ">=22" },
   "bin": { "editlane": "dist/cli.js" },
-  "files": ["dist", "README.md", "LICENSE", "NOTICE.md", "examples"],
+  "files": ["dist", "README.md", "LICENSE", "NOTICE.md", "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md", "reference", "examples"],
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",

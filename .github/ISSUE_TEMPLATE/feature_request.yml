@@ -1,0 +1,31 @@
+name: Feature request
+description: Propose an improvement with a concrete coding-agent use case.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the task and where the current workflow spends unnecessary time or loses useful context.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain what Editlane should do and how someone would use it.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: How to check it
+      description: Suggest a reproducible fixture or measurement, including checks that must stay intact.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Mention existing tools or simpler approaches if useful. Credit any upstream project you propose using.
