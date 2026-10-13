@@ -10,6 +10,7 @@ Run commands from the Editlane checkout after building. In the examples, `/absol
 | `serve` | Start the read-only stdio MCP server for one root. |
 | `connection` | Print portable JSON MCP and Codex TOML configuration for an explicit root. |
 | `doctor` | Verify a real local stdio connection, exact target source and outside-root refusal. |
+| `usage` | Normalize reported input, cache and output counts from a native client JSONL trace. |
 | `audit` | Analyze a normalized local session journal. |
 | `record` | Append an explicit event to a journal. |
 | `run` | Execute an argument list and record its result. |
@@ -76,7 +77,19 @@ A journal contains one JSON object per line, in timestamp order. Required fields
 
 Optional fields are `fingerprint`, `durationMs`, `bytes`, `exitCode`, and `signal`. Search fingerprints must cover the query and searched content. See the [synthetic journal](../examples/session.jsonl) for a complete example.
 
-The audit measures events that are present. Time to first edit starts at the first recorded event; it is `null` if no edit is recorded. A repeated unchanged call is a candidate for reuse and may still be justified. Recorded successful checks do not prove that every required check ran. Native client trace importers and automatic hooks are not included in v0.1.
+The audit measures events that are present. Time to first edit starts at the first recorded event; it is `null` if no edit is recorded. A repeated unchanged call is a candidate for reuse and may still be justified. Recorded successful checks do not prove that every required check ran. Automatic hooks are not included in v0.1.
+
+## Native usage
+
+```sh
+node dist/cli.js usage --client codex --trace /absolute/path/to/native-events.jsonl
+```
+
+Choose `codex`, `claude` or `cursor`. The reader accepts native JSONL events and experiment wrappers with an `event` object. Codex completed-turn input already includes cached input; Claude and Cursor report uncached input, cache reads and cache writes separately. Editlane sums those three categories for Claude and Cursor. Reasoning stays within output. See [Cursor's usage field definitions](https://cursor.com/docs/sdk/typescript).
+
+Counts are summed across completed usage events. Missing or invalid categories remain `null`; interrupted, failed or inconsistent traces have `complete: false`. Malformed JSONL is rejected without a partial total. The file must be a regular UTF-8 file of at most 10 MB; symlink and private-file guards still apply. Keep native traces local, since they can contain source and prompts.
+
+These counts include repeated cached context and are not a billing invoice. A completed usage record does not establish that a coding task passed its checks. Compare the same task, model, effort, checks and quality review before claiming savings.
 
 ## MCP server
 

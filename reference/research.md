@@ -15,6 +15,9 @@ This review checked upstream documentation, implementation and licences on 13 Oc
 | [GrepAI](https://github.com/yoanbernabeu/grepai) | Local embedding search and call graphs. | [MIT](https://github.com/yoanbernabeu/grepai/blob/main/LICENSE). | Useful when task wording does not identify a filename. Embedding setup, indexing and model/runtime requirements are additional costs, so it is not an automatic dependency. |
 | [LLMLingua](https://github.com/microsoft/LLMLingua) | Model-based prompt compression. | [MIT](https://github.com/microsoft/LLMLingua/blob/main/LICENSE). | Not applied to code or repository guidance: token removal can change details needed for an edit, and compression adds inference work. |
 | [Context Mode](https://github.com/mksglu/context-mode) | Indexed tool outputs and retrieval of relevant chunks. | [Elastic License 2.0](https://github.com/mksglu/context-mode/blob/main/LICENSE), with hosted-service restrictions. | Its current code is not included in the MIT package. Editlane's explicit deferred paths and retained-source hashes are original code. |
+| [Probe](https://github.com/probelabs/probe) | Ripgrep plus tree-sitter returns structural blocks with ranking, token limits and session deduplication. | [Apache-2.0](https://github.com/probelabs/probe/blob/main/LICENSE). | Promising for locating unknown anchors across languages. Its [cache implementation](https://github.com/probelabs/probe/blob/main/src/search/cache.rs) verifies file-content hashes before reuse. A future adapter must retain Editlane's path guards, exact source and explicit omissions; no Probe code ships yet. |
+| [Zoekt](https://github.com/sourcegraph/zoekt) | Persistent trigram indexes and symbol-aware ranking for large code corpora. | [Apache-2.0](https://github.com/sourcegraph/zoekt/blob/main/LICENSE). | A candidate for large repositories and multiple repositories. Its [design](https://github.com/sourcegraph/zoekt/blob/main/doc/design.md) includes index storage costs; changed working files still need a fresh-read path. No index service is installed for this small known-file task. |
+| [CodeWeaver](https://github.com/knitli/codeweaver) | Hybrid semantic search and broad language/provider support. | Upstream offers [MIT or Apache-2.0](https://github.com/knitli/codeweaver#readme). | Upstream now says it is unmaintained. Useful to study, but not selected as a new runtime dependency. |
 
 ## What shipped
 
@@ -25,6 +28,8 @@ Edit mode sends targets and their direct dependencies, configuration and guidanc
 Retained-source hashes reduce repeated responses. Every request still reads current content; a matching hash skips only a body the caller says it already has. Changed files return normally, including same-size changes. Guidance and discovered check scripts are always sent. This is a response optimization, not an assumption that the model remembers another session.
 
 The connection command generates an explicit root configuration for MCP clients, and the doctor command verifies it through the official stdio SDK. Neither changes permissions, provider authentication or network transport.
+
+The native usage reader preserves each client's cache definitions, rejects malformed traces and keeps unknown counts visible. It supports Claude, Codex and Cursor completed JSONL usage events without changing their models or reasoning effort. The [CLI reference](cli.md#native-usage) explains how to compare those counts.
 
 ## Why the savings claims need care
 

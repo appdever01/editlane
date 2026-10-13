@@ -184,6 +184,8 @@ One development run produced:
 
 These are synthetic context measurements. Bytes are not billed tokens, and the cold request took longer than reading the snapshot. Real agent benchmarks need repeated tasks, unchanged acceptance tests, and a comparison of time to a correct edit.
 
+Import reported usage from a native JSONL trace with `node dist/cli.js usage --client codex --trace /absolute/path/to/native-events.jsonl`. Claude and Cursor are also supported. The [usage reference](reference/cli.md#native-usage) explains cache accounting and incomplete traces; these totals are not a billing invoice.
+
 ## Limits and privacy
 
 v0.1 resolves relative imports, extension substitutions, directory indexes, and nearest JSONC `tsconfig`/`jsconfig` aliases. Single relative `extends` chains support comments, trailing commas and up to 16 loaded configurations. Existing literal parent filenames take precedence over optional `.json` fallback. A child's paths map replaces the parent map; inherited paths and legacy baseUrl retain their declaring origins. Loaded parents used by targets and verified consumers appear as exact config context or explicit budget omissions.
@@ -196,7 +198,7 @@ Keep packets and journals out of Git and shared logs. Context discovery makes no
 
 ## Contribute
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, and the contribution workflow. Improvements to module resolution, native trace importers, and realistic agent benchmarks are useful next steps. Changes should reduce unnecessary calls while preserving exact source, affected consumers, and failed checks.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, and the contribution workflow. Improvements to module resolution, additional client trace formats, and realistic agent benchmarks are useful next steps. Changes should reduce unnecessary calls while preserving exact source, affected consumers, and failed checks.
 
 Report reproducible bugs through [issues](https://github.com/appdever01/editlane/issues/new/choose), ask questions in [Discussions](https://github.com/appdever01/editlane/discussions), and follow the [code of conduct](CODE_OF_CONDUCT.md).
 

@@ -11,6 +11,7 @@ editlane focus "fix tag filtering" --root . --file src/tags.ts [--budget 24000] 
 editlane serve --root .
 editlane connection --root .
 editlane doctor --root . --file src/tags.ts
+editlane usage --client codex --trace native-events.jsonl
 editlane audit --journal session.jsonl
 editlane record --journal session.jsonl --kind read --key src/tags.ts --root .
 editlane run --journal session.jsonl [--kind check] [--root .] -- npm test
@@ -27,7 +28,7 @@ async function main(): Promise<void> {
   const commandArgs = delimiter < 0 ? [] : process.argv.slice(delimiter + 1);
   const parsed = parseArgs({ args: process.argv.slice(2, delimiter < 0 ? undefined : delimiter), allowPositionals: true, strict: true,
     options: { root: { type: 'string' }, file: { type: 'string', multiple: true }, budget: { type: 'string' }, json: { type: 'boolean' },
-      mode: { type: 'string' }, compact: { type: 'boolean' }, knownHashes: { type: 'string' }, journal: { type: 'string' }, kind: { type: 'string' }, key: { type: 'string' }, fingerprint: { type: 'string' }, rtk: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' } } });
+      client: { type: 'string' }, trace: { type: 'string' }, mode: { type: 'string' }, compact: { type: 'boolean' }, knownHashes: { type: 'string' }, journal: { type: 'string' }, kind: { type: 'string' }, key: { type: 'string' }, fingerprint: { type: 'string' }, rtk: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' } } });
   const { values, positionals } = parsed;
   const command = positionals[0];
   if (values.version) { process.stdout.write('0.1.0\n'); return; }
@@ -51,6 +52,10 @@ async function main(): Promise<void> {
   } else if (command === 'doctor') {
     const { doctor } = await import('./connection.js');
     process.stdout.write(`${JSON.stringify(await doctor(root, values.file ?? []), null, 2)}\n`);
+  } else if (command === 'usage') {
+    if (!values.trace || !values.client || !['claude', 'codex', 'cursor'].includes(values.client)) throw new Error('--trace and --client (claude, codex or cursor) are required.');
+    const { nativeUsage } = await import('./usage.js');
+    process.stdout.write(`${JSON.stringify(await nativeUsage(values.trace, values.client as 'claude' | 'codex' | 'cursor'), null, 2)}\n`);
   } else if (command === 'audit') {
     if (!values.journal) throw new Error('--journal is required.');
     process.stdout.write(`${JSON.stringify(auditEvents(await readJournal(values.journal)), null, 2)}\n`);
