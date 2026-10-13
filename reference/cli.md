@@ -30,6 +30,8 @@ Replace `src/tags.ts` with an existing affected file. `--file` is repeatable. Wi
 
 The default output separates metadata from exact source blocks. `--json` includes source in the structured response. Both formats include SHA-256 hashes, inclusion reasons, unresolved imports, discovery limits, metrics, and discovered package check scripts marked `not_run`.
 
+Every focus response identifies its canonical `root`, including when retained source is omitted. Check that it matches the project you intend to edit. MCP is bound to its configured root; for another project, generate and merge a project-specific connection instead of relying on a global entry pointing elsewhere.
+
 Discovery is bounded: reverse search inspects at most 200 candidate files and nearby test discovery returns at most 20 matches. A packet can therefore miss consumers; inspect its warnings before relying on it.
 
 `--mode edit` lists related consumer and test metadata in `deferred` and their retrieval requirement in `omitted`. Explicit targets, dependencies, configuration and scoped guidance still have exact bodies. Retrieve required deferred paths with another `--file` request. `--mode full` is the default and keeps the original whole-neighbor behavior.
@@ -42,7 +44,7 @@ Discovery is bounded: reverse search inspects at most 200 candidate files and ne
 
 MCP callers can instead use `reuseRetained: true` while they retain the source returned earlier in that MCP session. The server remembers at most 1000 hashes of bodies it returned, verifies current content on every request, and returns changed bodies. Deferred bodies are never assumed retained. Omitting the flag or setting it to false resets remembered hashes; start that way after context loss. An earlier overlapping request cannot restore hashes after that reset. A new MCP session starts empty. Explicit `knownHashes` takes precedence and the combined map stays bounded. This option does not apply to the stateless CLI.
 
-Nearest JSONC tsconfig/jsconfig ownership is preserved. Relative single-string inheritance loads at most 16 configs, tries literal parent filenames before optional `.json`, preserves option origins and replaces inherited paths maps with child maps. Exact loaded parent config context is included for targets and verified consumers. Missing, malformed, cyclic, ignored, private, symlinked, outside-root, package-name and array parents produce incomplete-resolution warnings; allowed local settings remain usable.
+Nearest JSONC tsconfig/jsconfig ownership is preserved. Relative single-string inheritance loads at most 16 configs, tries literal parent filenames before optional `.json`, preserves option origins and replaces inherited paths maps with child maps. An explicit `.json` path never gains another `.json` suffix. Exact loaded parent config context is included for targets and verified consumers. Missing, malformed, cyclic, ignored, private, symlinked, outside-root, package-name and array parents produce incomplete-resolution warnings; allowed local settings remain usable.
 
 Use `--journal` to record a context request's query, fingerprint, elapsed time, and full output byte count. Its fingerprint covers returned and omitted file metadata, guidance, warnings, and checks. Timings do not affect the fingerprint.
 

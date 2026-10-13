@@ -92,7 +92,9 @@ MCP takes `search: "semble"`; put the executable path in the server's environmen
 
 ## Connect your agent
 
-The server exposes `editlane_focus` and `editlane_audit`. Start it with:
+The server exposes `editlane_focus` and `editlane_audit`. Each response names its canonical `root`. Confirm it matches your project before using the source; a global connection to another repository needs a project-specific override.
+
+Start it with:
 
 ```sh
 node dist/cli.js serve --root /absolute/path/to/project

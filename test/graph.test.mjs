@@ -71,6 +71,19 @@ test('paths declaration origins, effective baseUrl origins and whole-map child o
   });
 });
 
+test('an explicit missing .json parent cannot select a competing .json.json config', async t => {
+  const { root } = await fixture(t, {
+    'tsconfig.json': '{"extends":"./configs/base.json","compilerOptions":{"paths":{"local/*":["src/*"]}}}',
+    'configs/base.json.json': '{"compilerOptions":{"paths":{"wrong/*":["../src/*"]}}}',
+  });
+  const resolver = await resolverFor(root);
+  assert.equal((await resolver.resolve('src/tags.ts', 'local/normalize')).file, 'src/normalize.ts');
+  assert.equal((await resolver.resolve('src/tags.ts', 'wrong/normalize')).file, undefined);
+  const packet = await new FocusEngine().focus({ root, files: ['src/tags.ts'] });
+  assert.ok(packet.warnings.some(warning => /incomplete.*base\.json/.test(warning)));
+  assert.equal(packet.files.some(file => file.path === 'configs/base.json.json'), false);
+});
+
 test('an empty child paths map clears inherited aliases and keeps legacy baseUrl lookup', async t => {
   const { root } = await fixture(t, {
     'configs/base.json': '{"compilerOptions":{"baseUrl":"../src","paths":{"local/*":["*"]}}}',

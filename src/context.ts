@@ -26,6 +26,7 @@ export interface ContextFile {
 
 export interface Packet {
   schemaVersion: 1;
+  root?: string;
   query: string;
   files: ContextFile[];
   omitted: { path: string; reason: string }[];
@@ -214,7 +215,7 @@ export class FocusEngine {
       } catch { warnings.push(`${file}: could not read package scripts; inspect required checks manually.`); }
     }
     return {
-      schemaVersion: 1, query: options.query ?? '', files: returned, omitted, warnings: [...new Set(warnings)], checks,
+      schemaVersion: 1, root, query: options.query ?? '', files: returned, omitted, warnings: [...new Set(warnings)], checks,
       ...(deferred.length ? { deferred } : {}), ...(unchanged.length ? { unchanged } : {}),
       metrics: { elapsedMs: Math.round((performance.now() - started) * 100) / 100, sourceBytes, instructionBytes, inventoryFiles: files.length,
         parsedFiles: this.cache.parsed - beforeParsed, cacheHits: this.cache.hits - beforeHits, returnedFiles: returned.length },
