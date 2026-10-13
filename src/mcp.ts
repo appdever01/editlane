@@ -14,8 +14,8 @@ export async function serve(rootInput: string): Promise<void> {
     const retained = new Map<string, string>();
     let epoch = Symbol();
     server.registerTool('editlane_focus', {
-      description: 'Get exact target source, JS/TS direct imports and config parents, guidance and package check scripts. Other languages flag manual dependency/check inspection. Start with known files; batch needed paths. mode=edit defers consumer/test bodies. Fetch relevant contracts/tests together, then edit once behavior is clear and run required checks. reuseRetained=true skips unchanged source returned in this MCP session only while you retain it. Omit reuseRetained and knownHashes after context loss. Guidance, checks, limits and omissions remain visible. No edits or commands run.',
-      inputSchema: z.object({ query: z.string().max(2000).optional(), files: z.array(z.string().max(1000)).max(20).optional(), budgetBytes: z.number().int().min(1).max(2_000_000).optional(), mode: z.enum(['full', 'edit']).optional(), reuseRetained: z.boolean().optional(), knownHashes: z.record(z.string().max(1000), z.string().regex(/^[a-f0-9]{64}$/)).refine(value => Object.keys(value).length <= 1000).optional(), format: z.enum(['compact', 'plain']).optional() }),
+      description: 'Get exact target source, JS/TS direct imports and config parents, guidance and package check scripts. Other languages flag manual dependency/check inspection. Start with known files; batch needed paths. For unknown locations, search=semble optionally searches a fresh guarded snapshot using a locally prepared CLI/model. Known files bypass it. mode=edit defers consumer/test bodies. Fetch relevant contracts/tests together, then edit once behavior is clear and run required checks. reuseRetained=true skips unchanged source returned in this MCP session only while you retain it. Omit reuseRetained and knownHashes after context loss. Guidance, checks, limits and omissions remain visible. No edits or project checks run.',
+      inputSchema: z.object({ query: z.string().max(2000).optional(), files: z.array(z.string().max(1000)).max(20).optional(), budgetBytes: z.number().int().min(1).max(2_000_000).optional(), mode: z.enum(['full', 'edit']).optional(), search: z.enum(['filename', 'semble']).optional(), reuseRetained: z.boolean().optional(), knownHashes: z.record(z.string().max(1000), z.string().regex(/^[a-f0-9]{64}$/)).refine(value => Object.keys(value).length <= 1000).optional(), format: z.enum(['compact', 'plain']).optional() }),
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     }, async input => {
       try {
@@ -26,7 +26,7 @@ export async function serve(rootInput: string): Promise<void> {
         if (input.reuseRetained) for (const [file, hash] of retained) {
           if (remaining > 0 && !Object.hasOwn(knownHashes, file)) { knownHashes[file] = hash; remaining--; }
         }
-        const packet = await engine.focus({ root, query: input.query ?? '', files: input.files ?? [], budgetBytes: input.budgetBytes ?? 24_000, mode: input.mode ?? 'full', knownHashes });
+        const packet = await engine.focus({ root, query: input.query ?? '', files: input.files ?? [], budgetBytes: input.budgetBytes ?? 24_000, mode: input.mode ?? 'full', search: input.search ?? 'filename', knownHashes });
         for (const file of requestEpoch === epoch ? packet.files.filter(file => file.role !== 'instruction') : []) {
           retained.delete(file.path);
           if (retained.size >= 1000) retained.delete(retained.keys().next().value!);

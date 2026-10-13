@@ -80,6 +80,16 @@ For a smaller first request, use `--mode edit --compact`. Targets, direct depend
 
 If your agent still has a file's exact source in its current context, it can pass that file's SHA-256 in `knownHashes`. Editlane reads the current file and returns an `unchanged` entry only when the hash matches. Changed files are sent again, and guidance and check scripts are always included. Omit retained hashes after context loss or when starting another session.
 
+For an unfamiliar repository, optional [Semble](https://github.com/MinishLab/semble) search can find likely targets across languages. Install its pinned CLI and prepare the local embedding model once. Set `EDITLANE_SEMBLE_BIN` to the executable if it is outside PATH:
+
+```bash
+uv tool install semble==0.6.2
+editlane prepare-search
+editlane focus "where are payment retries handled" --root . --search semble --mode edit --budget 100000 --compact
+```
+
+MCP takes `search: "semble"`; put the executable path in the server's environment when needed. Known files bypass semantic indexing. Each search uses a fresh snapshot of guarded source and returns current original files. Index files are removed afterward, and the search runs offline with bounded workers. Snapshots stop at 5000 source files or 32 MB, and failed lookup produces an error. Confirm the selected targets and inspect their contracts before editing. Other languages still need manual dependency and check inspection.
+
 ## Connect your agent
 
 The server exposes `editlane_focus` and `editlane_audit`. Start it with:

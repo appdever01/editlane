@@ -7,6 +7,7 @@ Run commands from the Editlane checkout after building. In the examples, `/absol
 | Command | Purpose |
 | --- | --- |
 | `focus` | Gather a context packet for a task and affected files. |
+| `prepare-search` | Prepare the optional local Semble embedding model with one generated file. |
 | `serve` | Start the read-only stdio MCP server for one root. |
 | `connection` | Print portable JSON MCP and Codex TOML configuration for an explicit root. |
 | `doctor` | Verify a real local stdio connection, exact target source and outside-root refusal. |
@@ -34,6 +35,8 @@ Discovery is bounded: reverse search inspects at most 200 candidate files and ne
 `--mode edit` lists related consumer and test metadata in `deferred` and their retrieval requirement in `omitted`. Explicit targets, dependencies, configuration and scoped guidance still have exact bodies. Retrieve required deferred paths with another `--file` request. `--mode full` is the default and keeps the original whole-neighbor behavior.
 
 `--compact` renders the metadata through the MIT TOON SDK and keeps source blocks exact. `--json` keeps the structured JSON format. The MCP tool defaults to compact output; set `format: "plain"` for the earlier text format.
+
+`--search semble` enables optional multilingual target discovery when no `--file` was supplied. The default is the existing filename search. It requires a locally prepared Semble 0.6.2 CLI/model; set `EDITLANE_SEMBLE_BIN` if needed. Run `editlane prepare-search` once to prepare the public embedding model using one harmless generated file, then use MCP `search: "semble"` or the CLI. Preparation can download the model; source searches stay offline. The adapter copies only guarded readable source into a fresh temporary snapshot, uses metadata-only results, reads selected original source again and deletes the snapshot/index. It runs offline, disables process workers, caps numerical threads at two and limits the snapshot to 5000 files/32 MB and the provider call to 30 seconds. Unreadable source is listed in omissions, and invalid or failed results stop the request. Search relevance does not prove complete impact coverage; known files bypass the adapter entirely.
 
 `--knownHashes '{"src/tags.ts":"<64-character SHA-256>"}'` accepts at most 1000 retained source hashes. A matching current body appears in `unchanged`; a different body is returned normally. A caller must already retain that exact source. Guidance is always sent. Omit hashes after context loss. MCP takes the same map as `knownHashes`, and accepts `mode`, `format` and `budgetBytes` separately.
 

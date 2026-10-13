@@ -11,6 +11,7 @@ export interface FocusOptions {
   files?: string[];
   budgetBytes?: number;
   mode?: 'full' | 'edit';
+  search?: 'filename' | 'semble';
   knownHashes?: Record<string, string>;
 }
 
@@ -60,13 +61,22 @@ export class FocusEngine {
     const available = new Set(files);
     const budget = options.budgetBytes ?? 24_000;
     const mode = options.mode ?? 'full';
+    if (options.search !== undefined && !['filename', 'semble'].includes(options.search)) throw new Error('Search backend must be filename or semble.');
     if (!['full', 'edit'].includes(mode)) throw new Error('Context mode must be full or edit.');
     if (options.knownHashes !== undefined && (!options.knownHashes || typeof options.knownHashes !== 'object' || Array.isArray(options.knownHashes) || Object.keys(options.knownHashes).length > 1000 || Object.values(options.knownHashes).some(hash => typeof hash !== 'string' || !/^[a-f0-9]{64}$/.test(hash)))) throw new Error('knownHashes must contain at most 1000 SHA-256 hashes from source already retained by the caller.');
     if (!Number.isInteger(budget) || budget < 1 || budget > 2_000_000) throw new Error('The context budget must be 1–2,000,000 bytes.');
     const warnings = ['Context is a starting point, not proof of complete impact coverage. Follow unresolved imports and repository requirements before editing.'];
     const omitted: Packet['omitted'] = [];
+    let selectionReason = 'Explicit target or filename match.';
     let anchors = [...new Set((options.files ?? []).map(file => relativePath(root, resolveInside(root, file))))];
-    if (!anchors.length) {
+    if (!anchors.length && options.search === 'semble') {
+      const { semanticTargets } = await import('./search.js');
+      const selected = await semanticTargets(root, files, options.query ?? '');
+      anchors = selected.anchors;
+      selectionReason = 'Optional Semble search candidate; confirm relevance before editing.';
+      omitted.push(...selected.omitted);
+      warnings.push(...selected.warnings);
+    } else if (!anchors.length) {
       const words = terms(options.query ?? '');
       const ranked = files.filter(file => codePattern.test(file) && !isTest(file)).map(file => ({ file, score: rank(file, words) }))
         .filter(entry => entry.score > 0).sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
@@ -100,7 +110,7 @@ export class FocusEngine {
         warnings.push(...config.warnings);
       }
     };
-    for (const file of anchors) add(file, 'target', 'Explicit target or filename match.');
+    for (const file of anchors) add(file, 'target', selectionReason);
     for (const file of anchors) {
       const imports = this.cache.get(`${root}/${file}`, await sourceFor(file), file);
       warnings.push(...imports.warnings);

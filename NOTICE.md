@@ -11,6 +11,7 @@ Editlane's original code is licensed under MIT. Dependencies are installed separ
 | [Zod](https://github.com/colinhacks/zod) | Trace and MCP input validation | MIT |
 | [ripgrep](https://github.com/BurntSushi/ripgrep) | Required external executable; ignored-file discovery and scoped search | MIT or Unlicense |
 | [RTK](https://github.com/rtk-ai/rtk/blob/develop/LICENSE) | Optional external executable; bounded metadata only | Apache-2.0 |
+| [Semble](https://github.com/MinishLab/semble/blob/main/LICENSE) | Optional separately installed 0.6.2 CLI; multilingual target discovery from guarded snapshots | MIT |
 
 Serena, Headroom, Repomix, LLMLingua, Context7, Aider, GrepAI and Context Mode are research references, not bundled components. Serena's current application is GPL-3.0-or-later and its SolidLSP component is MIT; its upstream license states that combined distributions are subject to GPL. Context Mode's current Elastic License 2.0 includes hosted-service restrictions. Any future code reuse or redistribution needs a fresh license review. Commercially restricted code has not been included.
 
