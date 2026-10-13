@@ -45,6 +45,8 @@ Editlane's repeat experiment uses the same missing feature in isolated copies, f
 
 ## Compatibility
 
+Semble's default [potion-code-16M-v2 model card](https://huggingface.co/minishlab/potion-code-16M-v2) lists an MIT licence and a wider retrieval evaluation. Its lightweight hybrid model does not outperform the larger transformer on every dataset. Four successful local navigation queries do not establish complete impact coverage or stronger generated code. The model is downloaded separately during preparation, not bundled with Editlane.
+
 The read-only MCP interface works with clients that implement stdio MCP, independent of the model provider. A shell-capable agent can use the CLI and JSON output. Dependency graph analysis currently covers JavaScript and TypeScript; supporting an AI client does not imply complete graph support for every programming language.
 
 Provider outages and stalled native requests must be reported separately. A local stdio connection check cannot prove that a remote model connection is healthy. Changing model, transport, reasoning effort or acceptance checks during one side of a pair invalidates that comparison.

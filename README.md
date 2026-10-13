@@ -83,7 +83,7 @@ If your agent still has a file's exact source in its current context, it can pas
 For an unfamiliar repository, optional [Semble](https://github.com/MinishLab/semble) search can find likely targets across languages. Install its pinned CLI and prepare the local embedding model once. Set `EDITLANE_SEMBLE_BIN` to the executable if it is outside PATH:
 
 ```bash
-uv tool install semble==0.6.2
+uv tool install --python 3.12 semble==0.6.2
 editlane prepare-search
 editlane focus "where are payment retries handled" --root . --search semble --mode edit --budget 100000 --compact
 ```
