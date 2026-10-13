@@ -21,7 +21,7 @@ It runs locally through a CLI or a read-only MCP server. You keep your existing 
 
 ## Project status
 
-**v0.1 is a working prototype for JavaScript and TypeScript.** The CLI and MCP server are implemented, and the server is tested with the official MCP stdio client. Live integration and repeated task benchmarks in Cursor, Claude Code, and Codex still need testing. Model speed, billed token savings, and stronger code quality have not been established.
+**v0.1 is a working prototype for JavaScript and TypeScript.** The CLI and MCP server are implemented, and the server is tested with the official MCP stdio client. Read-only MCP requests have run successfully in Cursor, Claude Code, and Codex. Native editing benchmarks remain experimental. Model speed, billed token savings, and stronger code quality have not been established.
 
 ## Quick start
 
@@ -100,7 +100,32 @@ Register that command as a local stdio MCP server in your client. For clients us
 }
 ```
 
-Replace both absolute paths. Configuration formats differ between clients, and the server is pinned to one repository root. Editlane does not change client settings or permissions.
+Replace both absolute paths. The server is pinned to one repository root; update that path when connecting another project. Use an absolute Node executable path if your desktop client cannot find `node`.
+
+For **Cursor**, save the JSON above in your project's `.cursor/mcp.json`. The CLI can approve and inspect this specific server:
+
+```sh
+agent mcp enable editlane
+agent mcp list-tools editlane
+```
+
+Use an explicit root path. The tested Cursor CLI did not expand `${workspaceFolder}` in server arguments. Its login is separate from the editor; run `agent login` if `agent status` says it is signed out.
+
+For **Claude Code**, run this from your project's directory:
+
+```sh
+claude mcp add --transport stdio --scope local editlane -- node /absolute/path/to/editlane/dist/cli.js serve --root /absolute/path/to/project
+claude mcp get editlane
+```
+
+For **Codex**, register the same local command:
+
+```sh
+codex mcp add editlane -- node /absolute/path/to/editlane/dist/cli.js serve --root /absolute/path/to/project
+codex mcp get editlane
+```
+
+Start a new client session after registration or changing the project root, so it starts the server with the saved configuration. Keep your local client configuration private. These commands register the read-only server; Editlane does not change agent permissions, hooks or model settings.
 
 Give your agent a request such as:
 
