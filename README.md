@@ -110,7 +110,7 @@ One development run returned a 3,505-byte packet against a 693,268-byte snapshot
 
 The next milestones are native trace importers, broader module resolution, an optional language-server provider, and repeated live task benchmarks. Improvements should demonstrate fewer unnecessary calls without losing affected consumers, source fidelity or failed checks.
 
-The test suite covers exact source, alias resolution, consumers, content-change invalidation, budgets, ignored files, symlinks, instruction scope, trace ordering, failure reporting and a real MCP client/server connection. Tests run with at most two workers. CI checks Node.js 22 and 24.
+The test suite covers exact source, alias resolution, consumers, content-change invalidation, budgets, ignored files, symlinks, instruction scope, trace ordering, failure reporting and a real MCP client/server connection. Tests run with at most two workers. The CI workflow is configured for Node.js 22 and 24.
 
 ## Credits and license
 

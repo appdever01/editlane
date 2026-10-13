@@ -59,3 +59,19 @@ test('a missing executable remains a recorded failure', async t => {
   assert.match(result.stderr, /ENOENT/);
   assert.equal(auditEvents(await readJournal(journal)).failedChecks.length, 1);
 });
+
+test('context fingerprint changes when omitted impact changes even if returned source is identical', async t => {
+  const { root, files } = await fixture(t);
+  const journal = path.join(root, 'context.jsonl');
+  const args = [path.resolve('dist/cli.js'), 'focus', '--root', root, '--file', 'src/tags.ts', '--budget', String(Buffer.byteLength(files['src/tags.ts'])), '--journal', journal, '--json'];
+  const run = () => promisify(execFile)(process.execPath, args);
+  const first = await run();
+  await run();
+  await writeFile(path.join(root, 'src/new-consumer.ts'), 'import { tags } from "./tags"; export const result = tags("home");');
+  await run();
+  const events = await readJournal(journal);
+  assert.equal(events[0].bytes, Buffer.byteLength(first.stdout));
+  assert.equal(events[0].fingerprint, events[1].fingerprint);
+  assert.notEqual(events[1].fingerprint, events[2].fingerprint);
+  assert.equal(auditEvents(events).repeatedUnchangedCalls.length, 1);
+});

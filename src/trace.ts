@@ -32,14 +32,15 @@ export async function readJournal(file: string): Promise<TraceEvent[]> {
 
 export async function appendEvent(file: string, input: TraceEvent): Promise<void> {
   const event = eventSchema.parse(input);
+  const line = `${JSON.stringify(event)}\n`;
   await mkdir(path.dirname(path.resolve(file)), { recursive: true, mode: 0o700 });
   const handle = await open(file, constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND | constants.O_NOFOLLOW, 0o600);
   try {
     const info = await handle.stat();
     if (!info.isFile()) throw new Error('Journal is not a regular file.');
-    if (info.size > 10_000_000) throw new Error('Journal is full; start a new session file.');
+    if (info.size + Buffer.byteLength(line) > 10_000_000) throw new Error('Journal is full; start a new session file.');
     if ((info.mode & 0o077) !== 0) throw new Error('Journal permissions must be private (chmod 600).');
-    await handle.writeFile(`${JSON.stringify(event)}\n`);
+    await handle.writeFile(line);
   } finally { await handle.close(); }
 }
 

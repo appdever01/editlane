@@ -33,9 +33,12 @@ async function main(): Promise<void> {
   const root = values.root ?? process.cwd();
   if (command === 'focus') {
     const packet = await new FocusEngine().focus({ root, query: positionals.slice(1).join(' '), files: values.file ?? [], budgetBytes: Number(values.budget ?? 24000) });
-    process.stdout.write(`${values.json ? JSON.stringify(packet, null, 2) : renderPacket(packet)}\n`);
-    if (values.journal) await appendEvent(values.journal, { timestamp: new Date().toISOString(), kind: 'context', key: JSON.stringify(values.file ?? positionals.slice(1)),
-      fingerprint: digest(JSON.stringify(packet.files.map(file => [file.path, file.sha256]))), bytes: packet.metrics.sourceBytes + packet.metrics.instructionBytes, durationMs: packet.metrics.elapsedMs });
+    const output = `${values.json ? JSON.stringify(packet, null, 2) : renderPacket(packet)}\n`;
+    process.stdout.write(output);
+    if (values.journal) await appendEvent(values.journal, { timestamp: new Date().toISOString(), kind: 'context',
+      key: JSON.stringify({ query: packet.query, files: values.file ?? [], budgetBytes: Number(values.budget ?? 24000) }),
+      fingerprint: digest(JSON.stringify({ ...packet, metrics: undefined, files: packet.files.map(({ source, ...file }) => file) })),
+      bytes: Buffer.byteLength(output), durationMs: packet.metrics.elapsedMs });
   } else if (command === 'serve') {
     const { serve } = await import('./mcp.js');
     await serve(root);
