@@ -8,6 +8,8 @@ Run commands from the Editlane checkout after building. In the examples, `/absol
 | --- | --- |
 | `focus` | Gather a context packet for a task and affected files. |
 | `serve` | Start the read-only stdio MCP server for one root. |
+| `connection` | Print portable JSON MCP and Codex TOML configuration for an explicit root. |
+| `doctor` | Verify a real local stdio connection, exact target source and outside-root refusal. |
 | `audit` | Analyze a normalized local session journal. |
 | `record` | Append an explicit event to a journal. |
 | `run` | Execute an argument list and record its result. |
@@ -27,6 +29,14 @@ Replace `src/tags.ts` with an existing affected file. `--file` is repeatable. Wi
 The default output separates metadata from exact source blocks. `--json` includes source in the structured response. Both formats include SHA-256 hashes, inclusion reasons, unresolved imports, discovery limits, metrics, and discovered package check scripts marked `not_run`.
 
 Discovery is bounded: reverse search inspects at most 200 candidate files and nearby test discovery returns at most 20 matches. A packet can therefore miss consumers; inspect its warnings before relying on it.
+
+`--mode edit` lists related consumer and test metadata in `deferred` and their retrieval requirement in `omitted`. Explicit targets, dependencies, configuration and scoped guidance still have exact bodies. Retrieve required deferred paths with another `--file` request. `--mode full` is the default and keeps the original whole-neighbor behavior.
+
+`--compact` renders the metadata through the MIT TOON SDK and keeps source blocks exact. `--json` keeps the structured JSON format. The MCP tool defaults to compact output; set `format: "plain"` for the earlier text format.
+
+`--knownHashes '{"src/tags.ts":"<64-character SHA-256>"}'` accepts at most 1000 retained source hashes. A matching current body appears in `unchanged`; a different body is returned normally. A caller must already retain that exact source. Guidance is always sent. Omit hashes after context loss. MCP takes the same map as `knownHashes`, and accepts `mode`, `format` and `budgetBytes` separately.
+
+Nearest JSONC tsconfig/jsconfig ownership is preserved. Relative single-string inheritance loads at most 16 configs, tries literal parent filenames before optional `.json`, preserves option origins and replaces inherited paths maps with child maps. Exact loaded parent config context is included for targets and verified consumers. Missing, malformed, cyclic, ignored, private, symlinked, outside-root, package-name and array parents produce incomplete-resolution warnings; allowed local settings remain usable.
 
 Use `--journal` to record a context request's query, fingerprint, elapsed time, and full output byte count. Its fingerprint covers returned and omitted file metadata, guidance, warnings, and checks. Timings do not affect the fingerprint.
 

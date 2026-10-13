@@ -15,6 +15,7 @@ export function isPrivate(file: string): boolean {
 }
 
 export async function repositoryRoot(input: string): Promise<string> {
+  if (/\$\{[^}]+\}/.test(input)) throw new Error('The MCP host did not expand the workspace placeholder. Configure an explicit absolute --root path for this project and start a new client session.');
   const root = await realpath(input);
   if (!(await stat(root)).isDirectory()) throw new Error('The repository root must be a directory.');
   return root;

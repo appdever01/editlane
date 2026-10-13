@@ -2,14 +2,33 @@
   "name": "@appdever01/editlane",
   "version": "0.1.0",
   "description": "Focused, exact context and evidence for faster coding-agent workflows.",
-  "repository": { "type": "git", "url": "git+https://github.com/appdever01/editlane.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/appdever01/editlane.git"
+  },
   "homepage": "https://github.com/appdever01/editlane#readme",
-  "bugs": { "url": "https://github.com/appdever01/editlane/issues" },
+  "bugs": {
+    "url": "https://github.com/appdever01/editlane/issues"
+  },
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=22" },
-  "bin": { "editlane": "dist/cli.js" },
-  "files": ["dist", "README.md", "LICENSE", "NOTICE.md", "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md", "reference", "examples"],
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "editlane": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md",
+    "reference",
+    "examples"
+  ],
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
@@ -20,11 +39,12 @@
   "dependencies": {
     "@ast-grep/napi": "0.50.0",
     "@modelcontextprotocol/server": "2.3.1",
+    "@toon-format/toon": "4.4.0",
     "jsonc-parser": "3.3.1",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@modelcontextprotocol/client": "2.3.1"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "2.3.1",
     "@types/node": "^22.0.0",
     "typescript": "7.0.2"
   }

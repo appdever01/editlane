@@ -7,8 +7,10 @@ import { runRecorded } from './run.js';
 
 const help = `Editlane 0.1.0 — focused context, earlier edits, visible evidence.
 
-editlane focus "fix tag filtering" --root . --file src/tags.ts [--budget 24000] [--json]
+editlane focus "fix tag filtering" --root . --file src/tags.ts [--budget 24000] [--mode edit] [--compact] [--json]
 editlane serve --root .
+editlane connection --root .
+editlane doctor --root . --file src/tags.ts
 editlane audit --journal session.jsonl
 editlane record --journal session.jsonl --kind read --key src/tags.ts --root .
 editlane run --journal session.jsonl [--kind check] [--root .] -- npm test
@@ -25,15 +27,16 @@ async function main(): Promise<void> {
   const commandArgs = delimiter < 0 ? [] : process.argv.slice(delimiter + 1);
   const parsed = parseArgs({ args: process.argv.slice(2, delimiter < 0 ? undefined : delimiter), allowPositionals: true, strict: true,
     options: { root: { type: 'string' }, file: { type: 'string', multiple: true }, budget: { type: 'string' }, json: { type: 'boolean' },
-      journal: { type: 'string' }, kind: { type: 'string' }, key: { type: 'string' }, fingerprint: { type: 'string' }, rtk: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' } } });
+      mode: { type: 'string' }, compact: { type: 'boolean' }, knownHashes: { type: 'string' }, journal: { type: 'string' }, kind: { type: 'string' }, key: { type: 'string' }, fingerprint: { type: 'string' }, rtk: { type: 'boolean' }, help: { type: 'boolean', short: 'h' }, version: { type: 'boolean' } } });
   const { values, positionals } = parsed;
   const command = positionals[0];
   if (values.version) { process.stdout.write('0.1.0\n'); return; }
   if (values.help || !command) { process.stdout.write(help); return; }
   const root = values.root ?? process.cwd();
   if (command === 'focus') {
-    const packet = await new FocusEngine().focus({ root, query: positionals.slice(1).join(' '), files: values.file ?? [], budgetBytes: Number(values.budget ?? 24000) });
-    const output = `${values.json ? JSON.stringify(packet, null, 2) : renderPacket(packet)}\n`;
+    if (values.mode && !['edit', 'full'].includes(values.mode)) throw new Error('--mode must be edit or full.');
+    const packet = await new FocusEngine().focus({ root, query: positionals.slice(1).join(' '), files: values.file ?? [], budgetBytes: Number(values.budget ?? 24000), mode: (values.mode ?? 'full') as 'edit' | 'full', ...(values.knownHashes ? { knownHashes: JSON.parse(values.knownHashes) } : {}) });
+    const output = `${values.json ? JSON.stringify(packet, null, 2) : renderPacket(packet, values.compact ? 'compact' : 'plain')}\n`;
     process.stdout.write(output);
     if (values.journal) await appendEvent(values.journal, { timestamp: new Date().toISOString(), kind: 'context',
       key: JSON.stringify({ query: packet.query, files: values.file ?? [], budgetBytes: Number(values.budget ?? 24000) }),
@@ -42,6 +45,12 @@ async function main(): Promise<void> {
   } else if (command === 'serve') {
     const { serve } = await import('./mcp.js');
     await serve(root);
+  } else if (command === 'connection') {
+    const { connection } = await import('./connection.js');
+    process.stdout.write(`${JSON.stringify(await connection(root), null, 2)}\n`);
+  } else if (command === 'doctor') {
+    const { doctor } = await import('./connection.js');
+    process.stdout.write(`${JSON.stringify(await doctor(root, values.file ?? []), null, 2)}\n`);
   } else if (command === 'audit') {
     if (!values.journal) throw new Error('--journal is required.');
     process.stdout.write(`${JSON.stringify(auditEvents(await readJournal(values.journal)), null, 2)}\n`);

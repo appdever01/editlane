@@ -66,7 +66,7 @@ test('unresolved imports and inherited configuration are surfaced, not silently 
   const { root } = await fixture(t, { 'src/tags.ts': 'import "./missing"; export const tags = 1;', 'tsconfig.json': '{"extends":"./base.json"}' });
   const packet = await new FocusEngine().focus({ root, files: ['src/tags.ts'] });
   assert.ok(packet.warnings.some(warning => warning.includes('unresolved local import')));
-  assert.ok(packet.warnings.some(warning => warning.includes('inherited tsconfig')));
+  assert.ok(packet.warnings.some(warning => warning.includes('inherited config resolution is incomplete') && warning.includes('base.json')));
 });
 
 test('filename discovery is bounded and refuses an ungrounded broad scan', async t => {

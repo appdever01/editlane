@@ -49,6 +49,8 @@ For your own project, point `--root` at its directory and `--file` at an affecte
 | Capability | Behavior |
 | --- | --- |
 | Focused context | Affected files, direct local imports, verified direct consumers, and nearby tests. |
+| Smaller first requests | Edit mode returns related paths for follow-up; retained hashes avoid resending unchanged bodies. |
+| Compact metadata | TOON tables carry file metadata; source blocks keep their original content. |
 | Exact source | Whole files with paths, inclusion reasons, byte counts, and SHA-256 hashes. |
 | Visible gaps | Omitted files, unresolved imports, and discovery limits are included in the response. |
 | Repository guidance | Applicable instruction files are returned separately with their directory scope. |
@@ -73,6 +75,10 @@ Start with a known file when you can. Editlane finds its direct dependencies, ch
 The source budget controls how much neighboring code is included. Requested files must fit in full; other files that do not fit are listed as omissions. Applicable instructions sit outside that budget and are never silently truncated. The host decides instruction precedence.
 
 The MCP process keeps an in-memory AST cache keyed by content hashes. Every request reads current content, so even a same-size edit invalidates cached imports. Editlane does not maintain a persistent source index.
+
+For a smaller first request, use `--mode edit --compact`. Targets, direct dependencies, configuration and guidance stay exact. Related consumers and tests appear in `deferred` with their paths, hashes and reasons. Request those paths before changing their contracts or relying on their tests. The default full mode still returns their bodies when the budget allows.
+
+If your agent still has a file's exact source in its current context, it can pass that file's SHA-256 in `knownHashes`. Editlane reads the current file and returns an `unchanged` entry only when the hash matches. Changed files are sent again, and guidance and check scripts are always included. Omit retained hashes after context loss or when starting another session.
 
 ## Connect your agent
 
@@ -102,6 +108,15 @@ Register that command as a local stdio MCP server in your client. For clients us
 
 Replace both absolute paths. The server is pinned to one repository root; update that path when connecting another project. Use an absolute Node executable path if your desktop client cannot find `node`.
 
+Generate these paths and test the local server from any working directory:
+
+```sh
+node /absolute/path/to/editlane/dist/cli.js connection --root /absolute/path/to/project
+node /absolute/path/to/editlane/dist/cli.js doctor --root /absolute/path/to/project --file src/tags.ts
+```
+
+`connection` prints a JSON MCP entry and a Codex TOML entry without changing settings. `doctor` starts the configured stdio server, verifies exact requested source and checks that outside-root access is refused. It checks the local connection; a client can still have separate authentication or provider network problems.
+
 For **Cursor**, save the JSON above in your project's `.cursor/mcp.json`. The CLI can approve and inspect this specific server:
 
 ```sh
@@ -127,9 +142,11 @@ codex mcp get editlane
 
 Start a new client session after registration or changing the project root, so it starts the server with the saved configuration. Keep your local client configuration private. These commands register the read-only server; Editlane does not change agent permissions, hooks or model settings.
 
+Any agent with MCP stdio support can use the same server entry, regardless of its model provider. Agents with shell access can use the CLI. Client compatibility does not guarantee a speedup; task scope, model behavior and network time still matter.
+
 Give your agent a request such as:
 
-> Use Editlane to gather context for the affected file. Read the returned contracts and tests, follow omitted context when needed, make the smallest complete change, then run the repository's required checks and review the diff.
+> Use Editlane with mode=edit for the known affected files. Reuse the exact source it returns, then retrieve deferred contracts and relevant tests in a scoped follow-up. Expand only for a concrete uncertainty. Make the smallest complete change, run the repository's required checks and review the diff.
 
 A tiny task whose code is already known may need no context tool.
 
@@ -169,7 +186,9 @@ These are synthetic context measurements. Bytes are not billed tokens, and the c
 
 ## Limits and privacy
 
-v0.1 resolves relative imports, extension substitutions, directory indexes, and nearest JSONC `tsconfig`/`jsconfig` aliases. Inherited configs, workspace package exports, language-server references, recursive barrel expansion, and computed imports are incomplete. Reverse candidates are selected by affected filenames, so renamed aliases can escape discovery. Packets flag these limits; use them to decide where to investigate further.
+v0.1 resolves relative imports, extension substitutions, directory indexes, and nearest JSONC `tsconfig`/`jsconfig` aliases. Single relative `extends` chains support comments, trailing commas and up to 16 loaded configurations. Existing literal parent filenames take precedence over optional `.json` fallback. A child's paths map replaces the parent map; inherited paths and legacy baseUrl retain their declaring origins. Loaded parents used by targets and verified consumers appear as exact config context or explicit budget omissions.
+
+Cycles, malformed parents, excluded paths, package-name or array inheritance produce incomplete-resolution warnings while preserving usable local settings. Workspace package exports, language-server references, recursive barrel expansion and computed imports remain incomplete. Reverse candidates are selected by affected filenames, so renamed aliases can escape discovery. Packets flag these limits; use them to decide where to investigate further.
 
 Ignored files, common secret filenames, binary files, invalid UTF-8, symlinks, and paths outside the root are excluded. Applicable guidance is read separately. This is not a secret detector: ordinary source or guidance may still contain private information.
 
@@ -185,6 +204,6 @@ Report reproducible bugs through [issues](https://github.com/appdever01/editlane
 
 Editlane's planner, provenance, audit, and command recorder are original code released under the [MIT license](LICENSE).
 
-It uses [ast-grep](https://github.com/ast-grep/ast-grep), [ripgrep](https://github.com/BurntSushi/ripgrep), [JSONC Parser](https://github.com/microsoft/node-jsonc-parser), [Zod](https://github.com/colinhacks/zod), and the official [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk). [RTK](https://github.com/rtk-ai/rtk) is an optional integration for bounded Git history metadata.
+It uses [ast-grep](https://github.com/ast-grep/ast-grep), [ripgrep](https://github.com/BurntSushi/ripgrep), [JSONC Parser](https://github.com/microsoft/node-jsonc-parser), [Zod](https://github.com/colinhacks/zod), [TOON](https://github.com/toon-format/toon) and the official [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk). [RTK](https://github.com/rtk-ai/rtk) is an optional integration for bounded Git history metadata.
 
-[Serena](https://github.com/oraios/serena), [Headroom](https://github.com/headroomlabs-ai/headroom), [Repomix](https://github.com/yamadashy/repomix), [LLMLingua](https://github.com/microsoft/LLMLingua), [Context7](https://github.com/upstash/context7), and [TOON](https://github.com/toon-format/toon) informed the research. Those projects retain their own authorship and licenses. The [third-party notice](NOTICE.md) lists what ships and how it is used.
+[Serena](https://github.com/oraios/serena), [Headroom](https://github.com/headroomlabs-ai/headroom), [Repomix](https://github.com/yamadashy/repomix) and other projects informed the research. The [research notes](reference/research.md) explain what fits, the evidence limits and licensing choices. Those projects retain their own authorship and licenses. The [third-party notice](NOTICE.md) lists what ships and how it is used.

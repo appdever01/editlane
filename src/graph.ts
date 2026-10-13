@@ -1,6 +1,7 @@
 import { Lang, parse } from '@ast-grep/napi';
 import { parse as parseJson, type ParseError } from 'jsonc-parser';
 import path from 'node:path';
+import { lstat } from 'node:fs/promises';
 import { codePattern, digest, readExact, relativePath, resolveInside } from './files.js';
 
 export interface Imports {
@@ -57,11 +58,16 @@ export interface Resolution {
 
 interface Config {
   file: string;
+  files: string[];
   base: string;
   paths: Record<string, string[]>;
+  pathsBase: string;
   baseUrl: boolean;
   warnings: string[];
 }
+
+const maxConfigChain = 16;
+const isRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 export class Resolver {
   private configs = new Map<string, Promise<Config | undefined>>();
@@ -82,21 +88,57 @@ export class Resolver {
     }
   }
 
-  private async loadConfig(file: string): Promise<Config> {
+  private async loadConfig(file: string, ancestors: string[] = []): Promise<Config> {
     const errors: ParseError[] = [];
-    const data = parseJson(await readExact(this.root, file), errors) as { extends?: unknown; compilerOptions?: { baseUrl?: unknown; paths?: unknown } } | undefined;
+    const data: unknown = parseJson((await readExact(this.root, file)).replace(/^\uFEFF/, ''), errors, { allowTrailingComma: true });
+    if (errors.length || !isRecord(data)) throw new Error(`Invalid JSONC configuration: ${file}`);
     const warnings: string[] = [];
-    if (errors.length || !data || typeof data !== 'object') throw new Error(`Invalid JSONC configuration: ${file}`);
-    if (data.extends) warnings.push(`${file}: inherited tsconfig settings are not resolved in v0.1.`);
-    const options = data.compilerOptions ?? {};
-    const paths: Record<string, string[]> = {};
-    if (options.paths && typeof options.paths === 'object') {
-      for (const [key, values] of Object.entries(options.paths)) {
-        if (Array.isArray(values) && values.every(value => typeof value === 'string')) paths[key] = values;
+    const chain = [...ancestors, file];
+    const incomplete = (reason: string) => warnings.push(`${file}: inherited config resolution is incomplete: ${reason}. Check the extends chain or inspect inherited aliases manually.`);
+    let parent: Config | undefined;
+    if (Object.hasOwn(data, 'extends')) {
+      if (typeof data.extends !== 'string' || !/^\.\.?\//.test(data.extends)) {
+        incomplete('extends must be a single relative path (./ or ../); package names, arrays and absolute paths are unsupported');
+      } else {
+        let parentFile = relativePath(this.root, path.resolve(this.root, path.dirname(file), data.extends));
+        try {
+          resolveInside(this.root, parentFile);
+          let exists = this.files.has(parentFile);
+          if (!exists) {
+            try { const info = await lstat(resolveInside(this.root, parentFile)); exists = info.isFile() || info.isSymbolicLink(); }
+            catch (error) { if (!['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? '')) throw error; }
+          }
+          if (!exists && !data.extends.endsWith('.json')) parentFile += '.json';
+          if (chain.includes(parentFile)) incomplete(`cycle detected: ${[...chain, parentFile].join(' -> ')}`);
+          else if (chain.length >= maxConfigChain) incomplete(`${maxConfigChain}-config limit reached before ${parentFile}`);
+          else if (!this.files.has(parentFile)) incomplete(`parent ${parentFile} is missing or excluded by discovery (ignored, private or symlinked)`);
+          else parent = await this.loadConfig(parentFile, chain);
+        } catch (error) {
+          incomplete(`could not load parent ${parentFile}: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
     }
-    const base = path.resolve(this.root, path.dirname(file), typeof options.baseUrl === 'string' ? options.baseUrl : '.');
-    return { file, base, paths, baseUrl: typeof options.baseUrl === 'string', warnings };
+    const directory = path.resolve(this.root, path.dirname(file));
+    const options = isRecord(data.compilerOptions) ? data.compilerOptions : {};
+    if (data.compilerOptions !== undefined && !isRecord(data.compilerOptions)) warnings.push(`${file}: compilerOptions must be an object; alias resolution is incomplete. Check compilerOptions.`);
+    let paths = parent?.paths ?? {};
+    let pathsBase = parent?.pathsBase ?? directory;
+    if (Object.hasOwn(options, 'paths')) {
+      paths = {};
+      pathsBase = directory;
+      if (isRecord(options.paths)) {
+        const entries = Object.entries(options.paths).filter(([key, values]) => {
+          if (Array.isArray(values) && values.every(value => typeof value === 'string')) return true;
+          warnings.push(`${file}: paths entry ${key} must be an array of strings; alias resolution is incomplete. Check compilerOptions.paths.`);
+          return false;
+        });
+        paths = Object.fromEntries(entries) as Record<string, string[]>;
+      } else warnings.push(`${file}: paths must be an object; alias resolution is incomplete. Check compilerOptions.paths.`);
+    }
+    if (options.baseUrl !== undefined && typeof options.baseUrl !== 'string') warnings.push(`${file}: baseUrl must be a string; alias resolution is incomplete. Check compilerOptions.baseUrl.`);
+    const baseUrl = typeof options.baseUrl === 'string' || (parent?.baseUrl ?? false);
+    const base = typeof options.baseUrl === 'string' ? path.resolve(directory, options.baseUrl) : parent?.baseUrl ? parent.base : pathsBase;
+    return { file, files: [...(parent?.files ?? []), file], base, paths, pathsBase, baseUrl, warnings: [...(parent?.warnings ?? []), ...warnings] };
   }
 
   private resolveCandidate(absolute: string): string | undefined {

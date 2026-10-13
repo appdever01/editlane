@@ -1,0 +1,39 @@
+# Research behind Editlane
+
+Editlane uses open-source components where they solve a specific problem. A smaller tool response is useful only if the agent can still make the correct edit and run the required checks. Repository size, cached input, model reasoning and provider latency can outweigh a response-size saving.
+
+This review checked upstream documentation, implementation and licences on 13 October 2026. Licences can change, so check the exact release before copying code. Reported savings below belong to upstream authors and are not Editlane results.
+
+| Project | Useful mechanism | Licence checked | Decision |
+| --- | --- | --- | --- |
+| [TOON](https://github.com/toon-format/toon) | Lossless tables for repeated JSON metadata. | [MIT](https://github.com/toon-format/toon/blob/main/LICENSE). | Ship the pinned 4.4.0 SDK for metadata. Keep source blocks exact and test metadata round trips. |
+| [RTK](https://github.com/rtk-ai/rtk) | Deterministic filters for verbose terminal output, with command-level measurement. | [Apache-2.0](https://github.com/rtk-ai/rtk/blob/master/LICENSE). | Keep the optional external metadata integration. Required checks, source reads and final diffs keep their complete output. |
+| [Serena](https://github.com/oraios/serena) | Symbol lookup, reference navigation and language-server operations. | [GPL-3.0-or-later application; MIT SolidLSP](https://github.com/oraios/serena/blob/main/LICENSE). Upstream also identifies its historical MIT cutoff. | A useful separate MCP companion for large refactors. A future language-server adapter can use the separately licensed SolidLSP; the current application is not copied into Editlane. |
+| [Headroom](https://github.com/headroomlabs-ai/headroom) | Content routing, compact tool responses and retrieval of cached originals. | [Apache-2.0](https://github.com/headroomlabs-ai/headroom/blob/main/LICENSE). | Useful for repetitive logs and JSON. Its code compressor can remove code bodies, and its proxy can change model effort when enabled. Those mechanisms are outside Editlane's exact-source comparison. |
+| [Aider](https://github.com/Aider-AI/aider) | Tree-sitter symbol extraction and ranked repository maps. | [Apache-2.0](https://github.com/Aider-AI/aider/blob/main/LICENSE.txt). | A candidate for finding anchors in unfamiliar repositories. Whole-repository indexing is unnecessary when affected files are already known. |
+| [Repomix](https://github.com/yamadashy/repomix) | Ignore-aware packaging, token counting and optional tree-sitter compression. | [MIT](https://github.com/yamadashy/repomix/blob/main/LICENSE). | Useful for snapshot export. Sending a whole snapshot for each small edit would add context; Editlane selects a smaller graph instead. |
+| [GrepAI](https://github.com/yoanbernabeu/grepai) | Local embedding search and call graphs. | [MIT](https://github.com/yoanbernabeu/grepai/blob/main/LICENSE). | Useful when task wording does not identify a filename. Embedding setup, indexing and model/runtime requirements are additional costs, so it is not an automatic dependency. |
+| [LLMLingua](https://github.com/microsoft/LLMLingua) | Model-based prompt compression. | [MIT](https://github.com/microsoft/LLMLingua/blob/main/LICENSE). | Not applied to code or repository guidance: token removal can change details needed for an edit, and compression adds inference work. |
+| [Context Mode](https://github.com/mksglu/context-mode) | Indexed tool outputs and retrieval of relevant chunks. | [Elastic License 2.0](https://github.com/mksglu/context-mode/blob/main/LICENSE), with hosted-service restrictions. | Its current code is not included in the MIT package. Editlane's explicit deferred paths and retained-source hashes are original code. |
+
+## What shipped
+
+TOON replaces repeated metadata keys with a compact table representation. The exact file bodies still follow that manifest. A regression test decodes the manifest back into the original metadata and checks every source block.
+
+Edit mode sends targets and their direct dependencies, configuration and guidance first. It lists related consumers and tests with exact paths, hashes and inclusion reasons, so the agent can retrieve the relevant contracts in a scoped follow-up. Full mode remains available. Deferral is visible, and an agent must inspect the tests and contracts it relies on.
+
+Retained-source hashes reduce repeated responses. Every request still reads current content; a matching hash skips only a body the caller says it already has. Changed files return normally, including same-size changes. Guidance and discovered check scripts are always sent. This is a response optimization, not an assumption that the model remembers another session.
+
+The connection command generates an explicit root configuration for MCP clients, and the doctor command verifies it through the official stdio SDK. Neither changes permissions, provider authentication or network transport.
+
+## Why the savings claims need care
+
+RTK's [README](https://github.com/rtk-ai/rtk#readme) reports reductions for individual development commands. Headroom's [proof section](https://github.com/headroomlabs-ai/headroom#proof) reports seeded payload reductions and separate evaluations. Serena's [README](https://github.com/oraios/serena#what-our-end-users-say) includes agent assessments. Those measure different workloads and do not prove faster, equally correct edits across every client.
+
+Editlane's repeat experiment uses the same missing feature in isolated copies, fixed models within each client, an equal time cap and all 20 acceptance cases. Both modes must finish, pass repository checks and receive a source/test review before a pair qualifies. Native input, cached input and output stay separate. Missing native usage remains unknown. Packet bytes and synthetic timings are reported separately from model-session measurements.
+
+## Compatibility
+
+The read-only MCP interface works with clients that implement stdio MCP, independent of the model provider. A shell-capable agent can use the CLI and JSON output. Dependency graph analysis currently covers JavaScript and TypeScript; supporting an AI client does not imply complete graph support for every programming language.
+
+Provider outages and stalled native requests must be reported separately. A local stdio connection check cannot prove that a remote model connection is healthy. Changing model, transport, reasoning effort or acceptance checks during one side of a pair invalidates that comparison.

@@ -3,12 +3,15 @@ import { performance } from 'node:perf_hooks';
 import { access } from 'node:fs/promises';
 import { codePattern, digest, inventory, readExact, relativePath, repositoryRoot, resolveInside, reverseCandidates } from './files.js';
 import { ImportCache, Resolver } from './graph.js';
+import { encode } from '@toon-format/toon';
 
 export interface FocusOptions {
   root: string;
   query?: string;
   files?: string[];
   budgetBytes?: number;
+  mode?: 'full' | 'edit';
+  knownHashes?: Record<string, string>;
 }
 
 export interface ContextFile {
@@ -25,6 +28,8 @@ export interface Packet {
   query: string;
   files: ContextFile[];
   omitted: { path: string; reason: string }[];
+  deferred?: Omit<ContextFile, 'source'>[];
+  unchanged?: Omit<ContextFile, 'source'>[];
   warnings: string[];
   checks: { packageFile: string; name: string; command: string; status: 'not_run' }[];
   metrics: { elapsedMs: number; sourceBytes: number; instructionBytes: number; inventoryFiles: number; parsedFiles: number; cacheHits: number; returnedFiles: number };
@@ -54,6 +59,9 @@ export class FocusEngine {
     const files = await inventory(root);
     const available = new Set(files);
     const budget = options.budgetBytes ?? 24_000;
+    const mode = options.mode ?? 'full';
+    if (!['full', 'edit'].includes(mode)) throw new Error('Context mode must be full or edit.');
+    if (options.knownHashes !== undefined && (!options.knownHashes || typeof options.knownHashes !== 'object' || Array.isArray(options.knownHashes) || Object.keys(options.knownHashes).length > 1000 || Object.values(options.knownHashes).some(hash => typeof hash !== 'string' || !/^[a-f0-9]{64}$/.test(hash)))) throw new Error('knownHashes must contain at most 1000 SHA-256 hashes from source already retained by the caller.');
     if (!Number.isInteger(budget) || budget < 1 || budget > 2_000_000) throw new Error('The context budget must be 1–2,000,000 bytes.');
     const warnings = ['Context is a starting point, not proof of complete impact coverage. Follow unresolved imports and repository requirements before editing.'];
     const omitted: Packet['omitted'] = [];
@@ -82,6 +90,15 @@ export class FocusEngine {
     const add = (file: string, role: ContextFile['role'], reason: string) => {
       if (!candidates.has(file)) candidates.set(file, { role, reason });
     };
+    const addConfig = async (file: string, includeSource: boolean) => {
+      const config = await resolver.configFor(file);
+      if (config) {
+        if (includeSource) for (const configFile of config.files) {
+          add(configFile, 'config', configFile === config.file ? `Module resolution for ${file}.` : `Inherited module resolution for ${file} via ${config.file}.`);
+        }
+        warnings.push(...config.warnings);
+      }
+    };
     for (const file of anchors) add(file, 'target', 'Explicit target or filename match.');
     for (const file of anchors) {
       const imports = this.cache.get(`${root}/${file}`, await sourceFor(file), file);
@@ -91,11 +108,7 @@ export class FocusEngine {
         if (resolved.file) add(resolved.file, isTest(resolved.file) ? 'test' : 'dependency', `Imported by ${file}: ${specifier}`);
         if (resolved.warning) warnings.push(resolved.warning);
       }
-      const config = await resolver.configFor(file);
-      if (config) {
-        add(config.file, 'config', `Module resolution for ${file}.`);
-        warnings.push(...config.warnings);
-      }
+      await addConfig(file, true);
       let directory = path.dirname(file);
       for (;;) {
         const packageFile = directory === '.' ? 'package.json' : `${directory}/package.json`;
@@ -115,6 +128,7 @@ export class FocusEngine {
           const resolved = await resolver.resolve(file, specifier);
           if (resolved.file && anchors.includes(resolved.file)) add(file, isTest(file) ? 'test' : 'consumer', `Imports ${resolved.file}.`);
         }
+        await addConfig(file, candidates.has(file));
       } catch (error) {
         warnings.push(error instanceof Error ? error.message : String(error));
         omitted.push({ path: file, reason: 'Consumer could not be inspected.' });
@@ -127,6 +141,9 @@ export class FocusEngine {
     }
     for (const file of matchingTests.slice(20).filter(file => !candidates.has(file))) omitted.push({ path: file, reason: 'Test candidate limit; pass --file to inspect.' });
     const returned: ContextFile[] = [];
+    const deferred: NonNullable<Packet['deferred']> = [];
+    const unchanged: NonNullable<Packet['unchanged']> = [];
+    const scopeFiles: string[] = [];
     let sourceBytes = 0;
     for (const [file, metadata] of candidates) {
       let source: string;
@@ -137,16 +154,27 @@ export class FocusEngine {
         continue;
       }
       const bytes = Buffer.byteLength(source);
+      const sha256 = digest(source);
+      scopeFiles.push(file);
+      if (options.knownHashes?.[file] === sha256) {
+        unchanged.push({ path: file, ...metadata, bytes, sha256 });
+        continue;
+      }
+      if (mode === 'edit' && ['consumer', 'test'].includes(metadata.role)) {
+        deferred.push({ path: file, ...metadata, bytes, sha256 });
+        omitted.push({ path: file, reason: 'Edit mode: related source deferred. Retrieve with files before changing its contract or relying on its tests.' });
+        continue;
+      }
       if (sourceBytes + bytes > budget) {
         if (metadata.role === 'target') throw new Error(`Affected files exceed the ${budget}-byte budget. Increase --budget; source was not truncated.`);
         omitted.push({ path: file, reason: 'Context budget; use --file or increase --budget to retrieve exact source.' });
         continue;
       }
-      returned.push({ path: file, ...metadata, source, bytes, sha256: digest(source) });
+      returned.push({ path: file, ...metadata, source, bytes, sha256 });
       sourceBytes += bytes;
     }
     const instructions = new Set<string>();
-    for (const file of returned.map(entry => entry.path)) {
+    for (const file of scopeFiles) {
       let directory = path.dirname(file);
       for (;;) {
         for (const name of instructionNames) {
@@ -176,13 +204,19 @@ export class FocusEngine {
     }
     return {
       schemaVersion: 1, query: options.query ?? '', files: returned, omitted, warnings: [...new Set(warnings)], checks,
+      ...(deferred.length ? { deferred } : {}), ...(unchanged.length ? { unchanged } : {}),
       metrics: { elapsedMs: Math.round((performance.now() - started) * 100) / 100, sourceBytes, instructionBytes, inventoryFiles: files.length,
         parsedFiles: this.cache.parsed - beforeParsed, cacheHits: this.cache.hits - beforeHits, returnedFiles: returned.length },
     };
   }
 }
 
-export function renderPacket(packet: Packet): string {
+export function renderPacket(packet: Packet, format: 'plain' | 'compact' = 'plain'): string {
+  if (format === 'compact') {
+    const manifest = { ...packet, files: packet.files.map(({ source, ...file }) => file) };
+    return [`EDITLANE MANIFEST (TOON; source blocks below are exact)\n${encode(manifest, { delimiter: '\t' })}`,
+      ...packet.files.map(file => `FILE ${JSON.stringify(file.path)}\n${file.source}\nEND FILE ${JSON.stringify(file.path)}`)].join('\n\n');
+  }
   const sections = [JSON.stringify({ ...packet, files: packet.files.map(({ source, ...file }) => file) }, null, 2)];
   for (const file of packet.files) sections.push(`FILE ${JSON.stringify(file.path)} (${file.role}, sha256=${file.sha256}, bytes=${file.bytes})\n${file.source}\nEND FILE ${JSON.stringify(file.path)}`);
   return sections.join('\n\n');
