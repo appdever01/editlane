@@ -57,3 +57,19 @@ test('omitted reuse resets session retention and a fresh connection cannot inher
   const other = await fresh({ files: ['src/tags.ts'], mode: 'edit', reuseRetained: true });
   assert.ok(other.includes(body('src/tags.ts')));
 });
+
+test('an overlapping request from before reset cannot restore old retained hashes', async t => {
+  const consumers = Object.fromEntries(Array.from({ length: 200 }, (_, index) => [`src/consumer${index}.ts`, `import { legacy } from './legacy';\nexport const item${index} = legacy;\n${' '.repeat(3000)}`]));
+  const { root } = await fixture(t, { ...consumers, 'src/legacy.ts': 'export const legacy = 1;\n', 'src/fresh.ts': 'export const fresh = 1;\n' });
+  const focus = await connect(t, root);
+  const earlier = focus({ files: ['src/legacy.ts'], budgetBytes: 2_000_000 });
+  const reset = focus({ files: ['src/fresh.ts'], mode: 'edit' });
+  const [oldPacket, currentPacket] = await Promise.all([earlier, reset]);
+  assert.ok(oldPacket.includes(body('src/legacy.ts')));
+  assert.ok(currentPacket.includes(body('src/fresh.ts')));
+  const current = await focus({ files: ['src/legacy.ts', 'src/fresh.ts'], mode: 'edit', reuseRetained: true });
+  assert.ok(current.includes(body('src/legacy.ts')));
+  assert.ok(!current.includes(body('src/fresh.ts')));
+  assert.ok(current.includes(body('AGENTS.md')));
+  assert.ok(current.includes('not_run'));
+});
