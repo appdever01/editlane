@@ -124,6 +124,8 @@ agent mcp enable editlane
 agent mcp list-tools editlane
 ```
 
+Server approval and a tool permission rule are separate. If `list-tools` says the server has not been approved, run the scoped enable command above after reviewing its configuration. A successful Editlane doctor check only verifies the local transport; it does not grant client approval.
+
 Use an explicit root path. The tested Cursor CLI did not expand `${workspaceFolder}` in server arguments. Its login is separate from the editor; run `agent login` if `agent status` says it is signed out.
 
 For **Claude Code**, run this from your project's directory:
@@ -146,7 +148,7 @@ Any agent with MCP stdio support can use the same server entry, regardless of it
 
 Give your agent a request such as:
 
-> Use Editlane with mode=edit for the known affected files. Reuse the exact source it returns, then retrieve deferred contracts and relevant tests in a scoped follow-up. Expand only for a concrete uncertainty. Make the smallest complete change, run the repository's required checks and review the diff.
+> Use Editlane with mode=edit for the known affected files. Reuse the exact source it returns and batch any needed deferred contracts and relevant tests into one follow-up. Begin editing once the affected behavior and contracts are clear. Expand only for a concrete uncertainty. Make the smallest complete change, run the repository's required checks and review the diff.
 
 A tiny task whose code is already known may need no context tool.
 
