@@ -10,7 +10,7 @@ export interface FocusOptions {
   query?: string;
   files?: string[];
   budgetBytes?: number;
-  mode?: 'full' | 'edit';
+  mode?: 'full' | 'edit' | 'read';
   search?: 'filename' | 'semble';
   knownHashes?: Record<string, string>;
 }
@@ -63,7 +63,8 @@ export class FocusEngine {
     const budget = options.budgetBytes ?? 24_000;
     const mode = options.mode ?? 'full';
     if (options.search !== undefined && !['filename', 'semble'].includes(options.search)) throw new Error('Search backend must be filename or semble.');
-    if (!['full', 'edit'].includes(mode)) throw new Error('Context mode must be full or edit.');
+    if (!['full', 'edit', 'read'].includes(mode)) throw new Error('Context mode must be full, edit or read.');
+    if (mode === 'read' && !options.files?.length) throw new Error('Read mode requires explicit files; use edit or full for discovery.');
     if (options.knownHashes !== undefined && (!options.knownHashes || typeof options.knownHashes !== 'object' || Array.isArray(options.knownHashes) || Object.keys(options.knownHashes).length > 1000 || Object.values(options.knownHashes).some(hash => typeof hash !== 'string' || !/^[a-f0-9]{64}$/.test(hash)))) throw new Error('knownHashes must contain at most 1000 SHA-256 hashes from source already retained by the caller.');
     if (!Number.isInteger(budget) || budget < 1 || budget > 2_000_000) throw new Error('The context budget must be 1–2,000,000 bytes.');
     const warnings = ['Context is a starting point, not proof of complete impact coverage. Follow unresolved imports and repository requirements before editing.'];
@@ -111,47 +112,59 @@ export class FocusEngine {
         warnings.push(...config.warnings);
       }
     };
-    for (const file of anchors) add(file, 'target', selectionReason);
-    for (const file of anchors) {
-      const imports = this.cache.get(`${root}/${file}`, await sourceFor(file), file);
-      warnings.push(...imports.warnings);
-      for (const specifier of imports.specifiers) {
-        const resolved = await resolver.resolve(file, specifier);
-        if (resolved.file) add(resolved.file, isTest(resolved.file) ? 'test' : 'dependency', `Imported by ${file}: ${specifier}`);
-        if (resolved.warning) warnings.push(resolved.warning);
-      }
-      await addConfig(file, true);
+    const addPackage = (file: string) => {
       let directory = path.dirname(file);
       for (;;) {
         const packageFile = directory === '.' ? 'package.json' : `${directory}/package.json`;
-        if (available.has(packageFile)) { packages.add(packageFile); add(packageFile, 'config', `Package scripts for ${file}.`); break; }
+        if (available.has(packageFile)) {
+          packages.add(packageFile);
+          if (mode !== 'read') add(packageFile, 'config', `Package scripts for ${file}.`);
+          break;
+        }
         if (directory === '.') break;
         directory = path.dirname(directory);
       }
-    }
-    const reverse = (await reverseCandidates(root, anchors)).filter(file => available.has(file) && !anchors.includes(file));
-    if (reverse.length > 200) warnings.push(`Consumer candidates limited to 200 of ${reverse.length}; expand scope to finish impact analysis.`);
-    for (const file of reverse.slice(200)) omitted.push({ path: file, reason: 'Consumer candidate limit; pass --file to inspect.' });
-    for (const file of reverse.slice(0, 200)) {
-      try {
+    };
+    for (const file of anchors) add(file, 'target', selectionReason);
+    if (mode === 'read') {
+      for (const file of anchors) addPackage(file);
+      warnings.push('Read mode returns only requested files and their scoped guidance. Dependencies, consumers, tests and module-resolution configs were not discovered. Inspect needed contracts explicitly or use edit/full mode. Package checks remain not_run.');
+    } else {
+      for (const file of anchors) {
         const imports = this.cache.get(`${root}/${file}`, await sourceFor(file), file);
         warnings.push(...imports.warnings);
         for (const specifier of imports.specifiers) {
           const resolved = await resolver.resolve(file, specifier);
-          if (resolved.file && anchors.includes(resolved.file)) add(file, isTest(file) ? 'test' : 'consumer', `Imports ${resolved.file}.`);
+          if (resolved.file) add(resolved.file, isTest(resolved.file) ? 'test' : 'dependency', `Imported by ${file}: ${specifier}`);
+          if (resolved.warning) warnings.push(resolved.warning);
         }
-        await addConfig(file, candidates.has(file));
-      } catch (error) {
-        warnings.push(error instanceof Error ? error.message : String(error));
-        omitted.push({ path: file, reason: 'Consumer could not be inspected.' });
+        await addConfig(file, true);
+        addPackage(file);
       }
+      const reverse = (await reverseCandidates(root, anchors)).filter(file => available.has(file) && !anchors.includes(file));
+      if (reverse.length > 200) warnings.push(`Consumer candidates limited to 200 of ${reverse.length}; expand scope to finish impact analysis.`);
+      for (const file of reverse.slice(200)) omitted.push({ path: file, reason: 'Consumer candidate limit; pass --file to inspect.' });
+      for (const file of reverse.slice(0, 200)) {
+        try {
+          const imports = this.cache.get(`${root}/${file}`, await sourceFor(file), file);
+          warnings.push(...imports.warnings);
+          for (const specifier of imports.specifiers) {
+            const resolved = await resolver.resolve(file, specifier);
+            if (resolved.file && anchors.includes(resolved.file)) add(file, isTest(file) ? 'test' : 'consumer', `Imports ${resolved.file}.`);
+          }
+          await addConfig(file, candidates.has(file));
+        } catch (error) {
+          warnings.push(error instanceof Error ? error.message : String(error));
+          omitted.push({ path: file, reason: 'Consumer could not be inspected.' });
+        }
+      }
+      warnings.push('Reverse discovery uses target filenames as candidates; renamed aliases, barrels, runtime imports and package exports can require broader inspection.');
+      const matchingTests = files.filter(file => isTest(file) && rank(file, anchors.map(anchor => path.basename(anchor).replace(/\.[^.]+$/, '').toLowerCase())) > 0);
+      for (const file of matchingTests.slice(0, 20)) {
+        add(file, 'test', 'Test filename matches an affected file.');
+      }
+      for (const file of matchingTests.slice(20).filter(file => !candidates.has(file))) omitted.push({ path: file, reason: 'Test candidate limit; pass --file to inspect.' });
     }
-    warnings.push('Reverse discovery uses target filenames as candidates; renamed aliases, barrels, runtime imports and package exports can require broader inspection.');
-    const matchingTests = files.filter(file => isTest(file) && rank(file, anchors.map(anchor => path.basename(anchor).replace(/\.[^.]+$/, '').toLowerCase())) > 0);
-    for (const file of matchingTests.slice(0, 20)) {
-      add(file, 'test', 'Test filename matches an affected file.');
-    }
-    for (const file of matchingTests.slice(20).filter(file => !candidates.has(file))) omitted.push({ path: file, reason: 'Test candidate limit; pass --file to inspect.' });
     const returned: ContextFile[] = [];
     const deferred: NonNullable<Packet['deferred']> = [];
     const unchanged: NonNullable<Packet['unchanged']> = [];

@@ -76,7 +76,11 @@ The source budget controls how much neighboring code is included. Requested file
 
 The MCP process keeps an in-memory AST cache keyed by content hashes. Every request reads current content, so even a same-size edit invalidates cached imports. Editlane does not maintain a persistent source index.
 
-For a smaller first request, use `--mode edit --compact`. Targets, direct dependencies, configuration and guidance stay exact. Related consumers and tests appear in `deferred` with their paths, hashes and reasons. Request those paths before changing their contracts or relying on their tests. The default full mode still returns their bodies when the budget allows.
+For graph discovery, use `--mode edit --compact`. Targets, direct dependencies, configuration and guidance stay exact. Related consumers and tests appear in `deferred` with their paths, hashes and reasons. Request those paths before changing their contracts or relying on their tests. The default full mode still returns their bodies when the budget allows.
+
+For a known-file follow-up, use `--mode read --file test/example.test.ts` (MCP `mode: "read"`). It returns only explicitly requested whole files, guidance scoped to those files and current nearest-package check commands. It does not parse imports, expand another graph, or send neighboring configuration and package bodies. That limited coverage is stated in the response. Request additional contracts when needed; use edit/full mode when you need discovery. Existing full/edit defaults are unchanged.
+
+Choose the route by the work it replaces. A small change in one known file can use native reads directly. A cross-file change can benefit from one edit-mode discovery request, followed by read-mode retrieval of the relevant tests and contracts. Retrieving every listed candidate or rerunning the same discovery with native searches adds work. Freshness checks and required validation still apply.
 
 If your agent still has a file's exact source in its current context, it can pass that file's SHA-256 in `knownHashes`. Editlane reads the current file and returns an `unchanged` entry only when the hash matches. Changed files are sent again, and guidance and check scripts are always included. Omit retained hashes after context loss or when starting another session.
 
@@ -158,11 +162,9 @@ Start a new client session after registration or changing the project root, so i
 
 Any agent with MCP stdio support can use the same server entry, regardless of its model provider. Agents with shell access can use the CLI. Client compatibility does not guarantee a speedup; task scope, model behavior and network time still matter.
 
-Give your agent a request such as:
+Client workflow instructions belong in a supported client instruction surface, not just an MCP description: [Codex project instructions](https://developers.openai.com/codex/guides/agents-md), [Claude Code memory](https://code.claude.com/docs/en/memory), or [Cursor rules](https://cursor.com/docs/rules). Keep local guidance private and ignored when appropriate. These instructions can tell the agent to choose direct reads for small known-file tasks, reuse exact source already in context, batch justified follow-ups with read mode, and expand only for an unresolved question. They must preserve tests and required checks. Instructions influence behavior; inspect native traces to verify that duplicate investigation actually falls.
 
-> Use Editlane with mode=edit for the known affected files. Batch needed contracts and tests into the request when their paths are known. For later MCP calls, set reuseRetained=true only while retaining the earlier source; omit it after context loss. Begin editing once affected behavior and contracts are clear. Expand only for a concrete uncertainty. Make the smallest complete change, run required checks and review the diff.
-
-A tiny task whose code is already known may need no context tool.
+A successful connection or a smaller packet does not establish a faster session. Compare complete native time, input/cache/output categories and reviewed code quality with the same requirements in both modes.
 
 ## Measure the investigation
 

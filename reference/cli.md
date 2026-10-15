@@ -34,7 +34,9 @@ Every focus response identifies its canonical `root`, including when retained so
 
 Discovery is bounded: reverse search inspects at most 200 candidate files and nearby test discovery returns at most 20 matches. A packet can therefore miss consumers; inspect its warnings before relying on it.
 
-`--mode edit` lists related consumer and test metadata in `deferred` and their retrieval requirement in `omitted`. Explicit targets, dependencies, configuration and scoped guidance still have exact bodies. Retrieve required deferred paths with another `--file` request. `--mode full` is the default and keeps the original whole-neighbor behavior.
+`--mode edit` lists related consumer and test metadata in `deferred` and their retrieval requirement in `omitted`. Explicit targets, dependencies, configuration and scoped guidance still have exact bodies. Retrieve required deferred paths with another `--file` request; use `--mode read` to avoid expanding their graphs again. `--mode full` is the default and keeps the original whole-neighbor behavior.
+
+`--mode read` requires explicit files and returns only those whole bodies and their scoped guidance, plus current nearest-package check commands. It does not discover imports, configs, consumers or tests, and says so in warnings. It uses the same inventory, root, ignore, private-file, symlink, encoding, size and byte-budget guards. Requested bodies must fit; they are never truncated. Retained hashes work in all three modes. Use native reads directly when those are sufficient for a small task.
 
 `--compact` renders the metadata through the MIT TOON SDK and keeps source blocks exact. `--json` keeps the structured JSON format. The MCP tool defaults to compact output; set `format: "plain"` for the earlier text format.
 

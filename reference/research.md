@@ -50,3 +50,9 @@ Semble's default [potion-code-16M-v2 model card](https://huggingface.co/minishla
 The read-only MCP interface works with clients that implement stdio MCP, independent of the model provider. A shell-capable agent can use the CLI and JSON output. Dependency graph analysis currently covers JavaScript and TypeScript; supporting an AI client does not imply complete graph support for every programming language.
 
 Provider outages and stalled native requests must be reported separately. A local stdio connection check cannot prove that a remote model connection is healthy. Changing model, transport, reasoning effort or acceptance checks during one side of a pair invalidates that comparison.
+
+## Adaptive retrieval and client investigation
+
+A native trace review found that different-file follow-ups expanded dependency graphs again, while clients also used ordinary search and reads. Repeated identical-request byte reductions do not represent that work. Read mode now provides an explicit exact-file follow-up without graph expansion; full/edit behavior remains compatible. It still verifies current source, returns applicable guidance and current check commands, and states what it did not discover.
+
+Use supported client instructions to make the workflow explicit: [Codex AGENTS.md](https://developers.openai.com/codex/guides/agents-md), [Claude Code CLAUDE.md](https://code.claude.com/docs/en/memory), and [Cursor rules](https://cursor.com/docs/rules). Prefer direct reads when paths and scope are already known. For discovery, select relevant contracts rather than fetching every candidate. Client instructions are a supported way to express this policy, not enforcement or a guarantee of savings. Native comparisons must give both modes the same investigation and quality requirements and inspect actual tools, code and checks.

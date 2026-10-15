@@ -7,7 +7,7 @@ import { runRecorded } from './run.js';
 
 const help = `Editlane 0.1.0 — focused context, earlier edits, visible evidence.
 
-editlane focus "fix tag filtering" --root . --file src/tags.ts [--budget 24000] [--mode edit] [--compact] [--json]
+editlane focus "fix tag filtering" --root . --file src/tags.ts [--budget 24000] [--mode edit|read] [--compact] [--json]
 editlane focus "where are payment retries handled" --root . --search semble [--budget 100000]
 editlane prepare-search
 editlane serve --root .
@@ -37,13 +37,13 @@ async function main(): Promise<void> {
   if (values.help || !command) { process.stdout.write(help); return; }
   const root = values.root ?? process.cwd();
   if (command === 'focus') {
-    if (values.mode && !['edit', 'full'].includes(values.mode)) throw new Error('--mode must be edit or full.');
+    if (values.mode && !['edit', 'full', 'read'].includes(values.mode)) throw new Error('--mode must be edit, full or read.');
     if (values.search && !['filename', 'semble'].includes(values.search)) throw new Error('--search must be filename or semble.');
-    const packet = await new FocusEngine().focus({ root, query: positionals.slice(1).join(' '), files: values.file ?? [], budgetBytes: Number(values.budget ?? 24000), mode: (values.mode ?? 'full') as 'edit' | 'full', search: (values.search ?? 'filename') as 'filename' | 'semble', ...(values.knownHashes ? { knownHashes: JSON.parse(values.knownHashes) } : {}) });
+    const packet = await new FocusEngine().focus({ root, query: positionals.slice(1).join(' '), files: values.file ?? [], budgetBytes: Number(values.budget ?? 24000), mode: (values.mode ?? 'full') as 'edit' | 'full' | 'read', search: (values.search ?? 'filename') as 'filename' | 'semble', ...(values.knownHashes ? { knownHashes: JSON.parse(values.knownHashes) } : {}) });
     const output = `${values.json ? JSON.stringify(packet, null, 2) : renderPacket(packet, values.compact ? 'compact' : 'plain')}\n`;
     process.stdout.write(output);
     if (values.journal) await appendEvent(values.journal, { timestamp: new Date().toISOString(), kind: 'context',
-      key: JSON.stringify({ query: packet.query, files: values.file ?? [], budgetBytes: Number(values.budget ?? 24000), search: values.search ?? 'filename' }),
+      key: JSON.stringify({ query: packet.query, files: values.file ?? [], budgetBytes: Number(values.budget ?? 24000), mode: values.mode ?? 'full', search: values.search ?? 'filename' }),
       fingerprint: digest(JSON.stringify({ ...packet, metrics: undefined, files: packet.files.map(({ source, ...file }) => file) })),
       bytes: Buffer.byteLength(output), durationMs: packet.metrics.elapsedMs });
   } else if (command === 'serve') {
